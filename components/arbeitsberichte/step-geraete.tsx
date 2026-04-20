@@ -27,7 +27,7 @@ export function StepGeraete({ data, onNext }: StepGeraeteProps) {
       .select('id, name, serial_number, status, category:categories(name, icon)')
       .eq('status', 'lager')
       .order('name')
-      .then(({ data: rows }) => setDevices((rows ?? []) as Device[]))
+      .then(({ data: rows }) => setDevices((rows ?? []) as unknown as Device[]))
   }, [])
 
   const filtered = devices.filter(d =>

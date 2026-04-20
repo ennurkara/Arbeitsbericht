@@ -1,14 +1,18 @@
 'use client'
 
-import { useRef, useState } from 'react'
-import dynamic from 'next/dynamic'
+import { useRef, useState, forwardRef } from 'react'
+import SignatureCanvas from 'react-signature-canvas'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { RotateCcw } from 'lucide-react'
-import type SignatureCanvas from 'react-signature-canvas'
 import type { WizardData } from './wizard'
 
-const SignaturePad = dynamic(() => import('react-signature-canvas'), { ssr: false })
+const SignaturePad = forwardRef<SignatureCanvas, { canvasProps: any; backgroundColor: string }>(
+  function SignaturePad(props, ref) {
+    return <SignatureCanvas ref={ref} {...props} />
+  }
+)
+SignaturePad.displayName = 'SignaturePad'
 
 interface StepUnterschriftenProps {
   data: WizardData
