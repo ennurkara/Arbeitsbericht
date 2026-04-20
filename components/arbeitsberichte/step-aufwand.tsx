@@ -1,0 +1,89 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { toast } from 'sonner'
+import { calculateWorkHours } from '@/lib/utils'
+import type { WizardData } from './wizard'
+
+interface StepAufwandProps {
+  data: WizardData
+  onNext: (patch: Partial<WizardData>) => Promise<void>
+}
+
+export function StepAufwand({ data, onNext }: StepAufwandProps) {
+  const [startTime, setStartTime] = useState(data.startTime)
+  const [endTime, setEndTime] = useState(data.endTime)
+  const [workHours, setWorkHours] = useState(data.workHours)
+  const [travelFrom, setTravelFrom] = useState(data.travelFrom)
+  const [travelTo, setTravelTo] = useState(data.travelTo)
+  const [isLoading, setIsLoading] = useState(false)
+
+  useEffect(() => {
+    if (startTime && endTime) {
+      const auto = calculateWorkHours(
+        new Date(startTime).toISOString(),
+        new Date(endTime).toISOString()
+      )
+      if (auto > 0) setWorkHours(String(auto))
+    }
+  }, [startTime, endTime])
+
+  async function handleNext() {
+    if (!workHours || parseFloat(workHours) <= 0) {
+      toast.error('Bitte Arbeitsaufwand in Stunden angeben')
+      return
+    }
+    setIsLoading(true)
+    await onNext({ startTime, endTime, workHours, travelFrom, travelTo })
+    setIsLoading(false)
+  }
+
+  return (
+    <div className="space-y-4">
+      <h2 className="text-lg font-semibold text-slate-900">Aufwand & Anfahrt</h2>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="startTime">Beginn</Label>
+          <Input id="startTime" type="datetime-local" value={startTime}
+            onChange={e => setStartTime(e.target.value)} />
+        </div>
+        <div>
+          <Label htmlFor="endTime">Ende</Label>
+          <Input id="endTime" type="datetime-local" value={endTime}
+            onChange={e => setEndTime(e.target.value)} />
+        </div>
+      </div>
+
+      <div>
+        <Label htmlFor="workHours">Arbeitsaufwand (Stunden) *</Label>
+        <Input id="workHours" type="number" min="0" step="0.5"
+          value={workHours} onChange={e => setWorkHours(e.target.value)}
+          placeholder="z.B. 4.5" />
+        <p className="text-xs text-slate-400 mt-1">
+          Wird automatisch aus Start/Ende berechnet, manuell überschreibbar
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="travelFrom">Anfahrt von</Label>
+          <Input id="travelFrom" value={travelFrom}
+            onChange={e => setTravelFrom(e.target.value)} placeholder="z.B. Berlin" />
+        </div>
+        <div>
+          <Label htmlFor="travelTo">Anfahrt bis</Label>
+          <Input id="travelTo" value={travelTo}
+            onChange={e => setTravelTo(e.target.value)} placeholder="z.B. München" />
+        </div>
+      </div>
+
+      <Button className="w-full" onClick={handleNext} disabled={isLoading || !workHours}>
+        Weiter →
+      </Button>
+    </div>
+  )
+}
