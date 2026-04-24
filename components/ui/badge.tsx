@@ -4,17 +4,28 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+  "inline-flex items-center gap-1.5 rounded-full px-2.5 py-[3px] text-[11.5px] font-medium border border-transparent whitespace-nowrap leading-none transition-colors",
   {
     variants: {
       variant: {
         default:
-          "border-transparent bg-primary text-primary-foreground hover:bg-primary/80",
+          "bg-[var(--paper-2)] text-[var(--ink-2)]",
         secondary:
-          "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
+          "bg-[var(--paper-2)] text-[var(--ink-2)]",
+        outline:
+          "bg-white border-[var(--rule)] text-[var(--ink-2)]",
         destructive:
-          "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
-        outline: "text-foreground",
+          "bg-[var(--red-tint)] text-[var(--red)]",
+        lager:
+          "bg-[var(--green-tint)] text-[var(--green)]",
+        reserv:
+          "bg-[var(--amber-tint)] text-[var(--amber)]",
+        verkauft:
+          "bg-[var(--blue-tint)] text-[var(--blue-ink)]",
+        defekt:
+          "bg-[var(--red-tint)] text-[var(--red)]",
+        aus:
+          "bg-[var(--paper-3)] text-[var(--ink-3)]",
       },
     },
     defaultVariants: {
@@ -25,11 +36,21 @@ const badgeVariants = cva(
 
 export interface BadgeProps
   extends React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof badgeVariants> {}
+    VariantProps<typeof badgeVariants> {
+  withDot?: boolean
+}
 
-function Badge({ className, variant, ...props }: BadgeProps) {
+function Badge({ className, variant, withDot, children, ...props }: BadgeProps) {
   return (
-    <div className={cn(badgeVariants({ variant }), className)} {...props} />
+    <div className={cn(badgeVariants({ variant }), className)} {...props}>
+      {withDot && (
+        <span
+          aria-hidden
+          className="inline-block w-1.5 h-1.5 rounded-full bg-current"
+        />
+      )}
+      {children}
+    </div>
   )
 }
 

@@ -237,25 +237,22 @@ export function Wizard({ profile }: WizardProps) {
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div>
       {/* Progress */}
-      <div className="mb-8">
+      <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-blue-600">
+          <span className="text-[12px] font-medium text-[var(--blue)]">
             Schritt {step} von {STEP_LABELS.length}
           </span>
-          <span className="text-sm text-slate-500">{STEP_LABELS[step - 1]}</span>
+          <span className="text-[12px] text-[var(--ink-3)]">{STEP_LABELS[step - 1]}</span>
         </div>
-        <div className="h-2 bg-slate-200 rounded-full">
-          <div
-            className="h-full bg-blue-600 rounded-full transition-all duration-300"
-            style={{ width: `${(step / STEP_LABELS.length) * 100}%` }}
-          />
+        <div className="kb-bar">
+          <span style={{ width: `${(step / STEP_LABELS.length) * 100}%` }} />
         </div>
       </div>
 
       {/* Steps */}
-      <div className="bg-white rounded-xl border p-6">
+      <div className="bg-white rounded-kb border border-[var(--rule)] p-6 shadow-xs">
         {step === 1 && <StepKunde data={data} onNext={saveStep1} />}
         {step === 2 && <StepTaetigkeit data={data} onNext={saveStep2} />}
         {step === 3 && <StepGeraete data={data} onNext={saveStep3} />}
@@ -270,15 +267,19 @@ export function Wizard({ profile }: WizardProps) {
       </div>
 
       {/* Navigation */}
-      <div className="flex justify-between mt-6">
+      <div className="flex justify-between mt-4">
         {step > 1 && step <= 5 ? (
-          <button onClick={() => setStep(s => s - 1)}
-            className="px-6 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors">
+          <button
+            onClick={() => setStep(s => s - 1)}
+            className="text-[13px] text-[var(--ink-3)] hover:text-[var(--ink)] transition-colors"
+          >
             ← Zurück
           </button>
         ) : step === 1 ? (
-          <button onClick={() => router.push('/arbeitsberichte')}
-            className="text-sm text-slate-500 hover:text-slate-700">
+          <button
+            onClick={() => router.push('/arbeitsberichte')}
+            className="text-[13px] text-[var(--ink-3)] hover:text-[var(--ink)] transition-colors"
+          >
             Abbrechen
           </button>
         ) : null}

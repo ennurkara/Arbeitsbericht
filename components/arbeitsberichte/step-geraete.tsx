@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Search, X } from 'lucide-react'
-import { deviceDisplayName } from '@/lib/utils'
+import { cn, deviceDisplayName } from '@/lib/utils'
 import type { Device } from '@/lib/types'
 import type { WizardData } from './wizard'
 
@@ -73,16 +73,22 @@ export function StepGeraete({ data, onNext }: StepGeraeteProps) {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-slate-900">Installierte Geräte</h2>
-      <p className="text-sm text-slate-500">Nur Geräte mit Status „Lager" werden angezeigt.</p>
+      <div>
+        <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-[var(--ink)]">Installierte Geräte</h2>
+        <p className="text-[12.5px] text-[var(--ink-3)] mt-1">Nur Geräte mit Status „Lager" werden angezeigt.</p>
+      </div>
 
       {selectedDevices.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {selectedDevices.map(d => (
-            <Badge key={d.id} variant="secondary" className="flex items-center gap-1 py-1">
-              {deviceDisplayName(d.model)}
-              {d.serial_number && <span className="text-slate-400 text-xs">· {d.serial_number}</span>}
-              <button onClick={() => toggleDevice(d.id)} className="ml-1 hover:text-red-500">
+            <Badge key={d.id} variant="verkauft" className="flex items-center gap-1.5 py-1 pr-1">
+              <span>{deviceDisplayName(d.model)}</span>
+              {d.serial_number && <span className="text-[var(--ink-4)] text-[10.5px]">· {d.serial_number}</span>}
+              <button
+                onClick={() => toggleDevice(d.id)}
+                className="ml-0.5 rounded-full p-0.5 hover:bg-white/40 transition-colors"
+                aria-label="Entfernen"
+              >
                 <X className="h-3 w-3" />
               </button>
             </Badge>
@@ -91,28 +97,33 @@ export function StepGeraete({ data, onNext }: StepGeraeteProps) {
       )}
 
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--ink-4)]" />
         <Input placeholder="Gerät oder Seriennummer suchen..."
           value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
       </div>
 
-      <div className="max-h-56 overflow-y-auto border rounded-lg divide-y">
+      <div className="max-h-56 overflow-y-auto border border-[var(--rule)] rounded-md bg-white kb-scroll">
         {filtered.length === 0 && (
-          <p className="text-sm text-slate-500 text-center py-4">Keine Geräte verfügbar</p>
+          <p className="text-[13px] text-[var(--ink-3)] text-center py-4">Keine Geräte verfügbar</p>
         )}
-        {filtered.map(device => (
-          <button key={device.id} onClick={() => toggleDevice(device.id)}
-            className={`w-full text-left px-4 py-3 text-sm transition-colors ${
+        {filtered.map((device, i) => (
+          <button
+            key={device.id}
+            onClick={() => toggleDevice(device.id)}
+            className={cn(
+              'w-full text-left px-4 py-3 text-[13px] transition-colors',
+              i > 0 && 'border-t border-[var(--rule-soft)]',
               selectedIds.includes(device.id)
-                ? 'bg-blue-50 text-blue-700'
-                : 'hover:bg-slate-50 text-slate-700'
-            }`}>
+                ? 'bg-[var(--blue-tint)] text-[var(--blue-ink)]'
+                : 'hover:bg-[var(--paper-2)] text-[var(--ink-2)]'
+            )}
+          >
             <span className="font-medium">{deviceDisplayName(device.model)}</span>
             {device.serial_number && (
-              <span className="text-slate-400 ml-2">SN: {device.serial_number}</span>
+              <span className="text-[var(--ink-4)] ml-2">SN: {device.serial_number}</span>
             )}
             {device.model?.category && (
-              <span className="text-xs text-slate-400 ml-2">
+              <span className="text-[11.5px] text-[var(--ink-4)] ml-2">
                 · {device.model.category.name}
               </span>
             )}

@@ -23,13 +23,20 @@ export default async function ArbeitsberichtePage() {
   const canCreate = role === 'admin' || role === 'mitarbeiter'
 
   return (
-    <div>
+    <div className="max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Arbeitsberichte</h1>
+        <div>
+          <h1 className="text-[28px] font-semibold tracking-[-0.022em] text-[var(--ink)] leading-tight">
+            Arbeitsberichte
+          </h1>
+          <p className="text-sm text-[var(--ink-3)] mt-1">
+            Alle deine Berichte auf einen Blick.
+          </p>
+        </div>
         {canCreate && (
           <Button asChild>
             <Link href="/arbeitsberichte/neu">
-              <Plus className="h-4 w-4 mr-2" />Neuer Bericht
+              <Plus className="h-4 w-4" />Neuer Bericht
             </Link>
           </Button>
         )}
