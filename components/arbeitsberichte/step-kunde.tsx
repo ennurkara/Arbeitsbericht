@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { Search, UserPlus } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import type { Customer } from '@/lib/types'
 import type { WizardData } from './wizard'
 
@@ -78,55 +79,60 @@ export function StepKunde({ data, onNext }: StepKundeProps) {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-slate-900">Kundendaten</h2>
+      <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-[var(--ink)]">Kundendaten</h2>
 
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--ink-4)]" />
         <Input placeholder="Kunde suchen..." value={search}
           onChange={e => setSearch(e.target.value)} className="pl-9" />
       </div>
 
-      <div className="max-h-48 overflow-y-auto border rounded-lg divide-y">
+      <div className="max-h-48 overflow-y-auto border border-[var(--rule)] rounded-md bg-white kb-scroll">
         {filtered.length === 0 && (
-          <p className="text-sm text-slate-500 text-center py-4">Keine Kunden gefunden</p>
+          <p className="text-[13px] text-[var(--ink-3)] text-center py-4">Keine Kunden gefunden</p>
         )}
-        {filtered.map(customer => (
-          <button key={customer.id} onClick={() => setSelectedId(customer.id)}
-            className={`w-full text-left px-4 py-3 text-sm transition-colors ${
+        {filtered.map((customer, i) => (
+          <button
+            key={customer.id}
+            onClick={() => setSelectedId(customer.id)}
+            className={cn(
+              'w-full text-left px-4 py-3 text-[13px] transition-colors',
+              i > 0 && 'border-t border-[var(--rule-soft)]',
               selectedId === customer.id
-                ? 'bg-blue-50 text-blue-700 font-medium'
-                : 'hover:bg-slate-50 text-slate-700'
-            }`}>
+                ? 'bg-[var(--blue-tint)] text-[var(--blue-ink)]'
+                : 'hover:bg-[var(--paper-2)] text-[var(--ink-2)]'
+            )}
+          >
             <span className="font-medium">{customer.name}</span>
-            {customer.address && <span className="text-slate-400 ml-2">· {customer.address}</span>}
+            {customer.address && <span className="text-[var(--ink-4)] ml-2">· {customer.address}</span>}
           </button>
         ))}
       </div>
 
       {!showNewForm ? (
-        <Button variant="outline" size="sm" onClick={() => setShowNewForm(true)}>
-          <UserPlus className="h-4 w-4 mr-2" />Neuen Kunden anlegen
+        <Button variant="secondary" size="sm" onClick={() => setShowNewForm(true)}>
+          <UserPlus className="h-4 w-4" />Neuen Kunden anlegen
         </Button>
       ) : (
-        <div className="border rounded-lg p-4 space-y-3 bg-slate-50">
-          <h3 className="text-sm font-semibold text-slate-700">Neuer Kunde</h3>
-          <div>
+        <div className="border border-[var(--rule)] rounded-kb p-4 space-y-3 bg-[var(--paper-2)]">
+          <h3 className="text-[13px] font-semibold text-[var(--ink)]">Neuer Kunde</h3>
+          <div className="space-y-1.5">
             <Label htmlFor="cname">Name *</Label>
             <Input id="cname" value={newCustomer.name}
               onChange={e => setNewCustomer(p => ({ ...p, name: e.target.value }))} />
           </div>
-          <div>
+          <div className="space-y-1.5">
             <Label htmlFor="caddress">Adresse</Label>
             <Input id="caddress" value={newCustomer.address}
               onChange={e => setNewCustomer(p => ({ ...p, address: e.target.value }))}
               placeholder="Straße + Nr., PLZ Ort" />
           </div>
-          <div>
+          <div className="space-y-1.5">
             <Label htmlFor="cphone">Telefon</Label>
             <Input id="cphone" value={newCustomer.phone}
               onChange={e => setNewCustomer(p => ({ ...p, phone: e.target.value }))} />
           </div>
-          <div>
+          <div className="space-y-1.5">
             <Label htmlFor="cemail">E-Mail</Label>
             <Input id="cemail" type="email" value={newCustomer.email}
               onChange={e => setNewCustomer(p => ({ ...p, email: e.target.value }))} />

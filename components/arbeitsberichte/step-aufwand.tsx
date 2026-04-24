@@ -43,38 +43,38 @@ export function StepAufwand({ data, onNext }: StepAufwandProps) {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-slate-900">Aufwand & Anfahrt</h2>
+      <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-[var(--ink)]">Aufwand &amp; Anfahrt</h2>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
+        <div className="space-y-1.5">
           <Label htmlFor="startTime">Beginn</Label>
           <Input id="startTime" type="datetime-local" value={startTime}
             onChange={e => setStartTime(e.target.value)} />
         </div>
-        <div>
+        <div className="space-y-1.5">
           <Label htmlFor="endTime">Ende</Label>
           <Input id="endTime" type="datetime-local" value={endTime}
             onChange={e => setEndTime(e.target.value)} />
         </div>
       </div>
 
-      <div>
+      <div className="space-y-1.5">
         <Label htmlFor="workHours">Arbeitsaufwand (Stunden) *</Label>
         <Input id="workHours" type="number" min="0" step="0.5"
           value={workHours} onChange={e => setWorkHours(e.target.value)}
           placeholder="z.B. 4.5" />
-        <p className="text-xs text-slate-400 mt-1">
+        <p className="text-[11.5px] text-[var(--ink-4)]">
           Wird automatisch aus Start/Ende berechnet, manuell überschreibbar
         </p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
+        <div className="space-y-1.5">
           <Label htmlFor="travelFrom">Anfahrt von</Label>
           <Input id="travelFrom" value={travelFrom}
             onChange={e => setTravelFrom(e.target.value)} placeholder="z.B. Berlin" />
         </div>
-        <div>
+        <div className="space-y-1.5">
           <Label htmlFor="travelTo">Anfahrt bis</Label>
           <Input id="travelTo" value={travelTo}
             onChange={e => setTravelTo(e.target.value)} placeholder="z.B. München" />

@@ -15,8 +15,10 @@ export default async function NeuerBerichtPage() {
   if (role === 'viewer') redirect('/arbeitsberichte')
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold text-slate-900 mb-6">Neuer Arbeitsbericht</h1>
+    <div className="max-w-2xl mx-auto">
+      <h1 className="text-[28px] font-semibold tracking-[-0.022em] text-[var(--ink)] leading-tight mb-6">
+        Neuer Arbeitsbericht
+      </h1>
       <Wizard profile={profile as Profile} />
     </div>
   )
