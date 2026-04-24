@@ -5,7 +5,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
+import { MapPin, Loader2 } from 'lucide-react'
 import { calculateWorkHours, formatHoursMinutes, nowLocalISO16 } from '@/lib/utils'
+import { detectCurrentCity } from '@/lib/geolocation'
 import type { WizardData } from './wizard'
 
 interface StepAufwandProps {
@@ -20,6 +22,22 @@ export function StepAufwand({ data, onNext }: StepAufwandProps) {
   const [travelFrom, setTravelFrom] = useState(data.travelFrom)
   const [travelTo, setTravelTo] = useState(data.travelTo)
   const [isLoading, setIsLoading] = useState(false)
+  const [locatingField, setLocatingField] = useState<'from' | 'to' | null>(null)
+
+  async function locate(field: 'from' | 'to') {
+    setLocatingField(field)
+    try {
+      const city = await detectCurrentCity()
+      if (field === 'from') setTravelFrom(city)
+      else setTravelTo(city)
+      toast.success(`Standort: ${city}`)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Standort nicht verfügbar'
+      toast.error(msg)
+    } finally {
+      setLocatingField(null)
+    }
+  }
 
   useEffect(() => {
     if (startTime && endTime) {
@@ -73,15 +91,45 @@ export function StepAufwand({ data, onNext }: StepAufwandProps) {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 min-w-0">
           <Label htmlFor="travelFrom">Anfahrt von</Label>
-          <Input id="travelFrom" value={travelFrom}
-            onChange={e => setTravelFrom(e.target.value)} placeholder="z.B. Berlin" />
+          <div className="flex gap-2">
+            <Input id="travelFrom" value={travelFrom}
+              onChange={e => setTravelFrom(e.target.value)} placeholder="z.B. Alling" />
+            <Button
+              type="button"
+              variant="secondary"
+              size="icon"
+              onClick={() => locate('from')}
+              disabled={locatingField !== null}
+              aria-label="Aktuellen Standort übernehmen"
+              title="Aktuellen Standort übernehmen"
+            >
+              {locatingField === 'from'
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <MapPin className="h-4 w-4" />}
+            </Button>
+          </div>
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 min-w-0">
           <Label htmlFor="travelTo">Anfahrt bis</Label>
-          <Input id="travelTo" value={travelTo}
-            onChange={e => setTravelTo(e.target.value)} placeholder="z.B. München" />
+          <div className="flex gap-2">
+            <Input id="travelTo" value={travelTo}
+              onChange={e => setTravelTo(e.target.value)} placeholder="z.B. München" />
+            <Button
+              type="button"
+              variant="secondary"
+              size="icon"
+              onClick={() => locate('to')}
+              disabled={locatingField !== null}
+              aria-label="Aktuellen Standort übernehmen"
+              title="Aktuellen Standort übernehmen"
+            >
+              {locatingField === 'to'
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <MapPin className="h-4 w-4" />}
+            </Button>
+          </div>
         </div>
       </div>
 
