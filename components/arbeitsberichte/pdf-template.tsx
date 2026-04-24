@@ -1,6 +1,6 @@
 interface PdfTemplateProps {
   reportNumber: string | null
-  customer: { name: string; address: string | null; city: string | null; phone: string | null }
+  customer: { name: string; address: string | null; phone: string | null; email: string | null }
   technician: { full_name: string }
   report: {
     description: string | null
@@ -61,8 +61,8 @@ export function PdfTemplate({
             </div>
             <div style={{ fontWeight: '600', marginBottom: '2px' }}>{customer.name}</div>
             {customer.address && <div style={{ color: '#475569', fontSize: '11px' }}>{customer.address}</div>}
-            {customer.city && <div style={{ color: '#475569', fontSize: '11px' }}>{customer.city}</div>}
             {customer.phone && <div style={{ color: '#475569', fontSize: '11px' }}>{customer.phone}</div>}
+            {customer.email && <div style={{ color: '#475569', fontSize: '11px' }}>{customer.email}</div>}
           </div>
           <div>
             <div style={{ color: '#64748b', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>

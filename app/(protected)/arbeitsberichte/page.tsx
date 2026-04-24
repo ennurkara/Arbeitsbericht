@@ -15,14 +15,10 @@ export default async function ArbeitsberichtePage() {
     .from('profiles').select('role').eq('id', user.id).single()
   const role = profile?.role as UserRole
 
-  const query = supabase
+  const { data: reports } = await supabase
     .from('work_reports')
     .select('*, customer:customers(name)')
     .order('created_at', { ascending: false })
-
-  const { data: reports } = role === 'admin'
-    ? await query
-    : await query.eq('technician_id', user.id)
 
   const canCreate = role === 'admin' || role === 'mitarbeiter'
 

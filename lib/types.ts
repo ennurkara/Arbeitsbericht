@@ -1,6 +1,12 @@
 export type UserRole = 'admin' | 'mitarbeiter' | 'viewer'
 export type WorkReportStatus = 'entwurf' | 'abgeschlossen'
-export type DeviceStatus = 'lager' | 'im_einsatz' | 'defekt' | 'ausgemustert'
+export type DeviceStatus =
+  | 'lager'
+  | 'im_einsatz'
+  | 'defekt'
+  | 'ausgemustert'
+  | 'verkauft'
+  | 'reserviert'
 
 export interface Profile {
   id: string
@@ -12,21 +18,34 @@ export interface Profile {
 export interface Customer {
   id: string
   name: string
-  address: string | null
-  city: string | null
-  phone: string | null
   email: string | null
+  phone: string | null
+  address: string | null
   notes: string | null
   created_at: string
-  updated_at: string
+}
+
+export interface ManufacturerRef {
+  name: string
+}
+
+export interface CategoryRef {
+  name: string
+  icon: string | null
+}
+
+export interface ModelRef {
+  modellname: string
+  variante: string | null
+  manufacturer: ManufacturerRef | null
+  category: CategoryRef | null
 }
 
 export interface Device {
   id: string
-  name: string
   serial_number: string | null
   status: DeviceStatus
-  category?: { name: string; icon: string | null }
+  model: ModelRef | null
 }
 
 export interface WorkReport {
@@ -44,6 +63,8 @@ export interface WorkReport {
   technician_signature: string | null
   customer_signature: string | null
   completed_at: string | null
+  pdf_path: string | null
+  pdf_uploaded_at: string | null
   created_at: string
   updated_at: string
   customer?: Customer
