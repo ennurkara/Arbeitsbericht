@@ -77,6 +77,11 @@ export default async function BerichtDetailPage({ params }: PageProps) {
           {(report.customer as any)?.address && (
             <p className="text-[13px] text-[var(--ink-3)]">{(report.customer as any).address}</p>
           )}
+          {((report.customer as any)?.postal_code || (report.customer as any)?.city) && (
+            <p className="text-[13px] text-[var(--ink-3)]">
+              {[(report.customer as any).postal_code, (report.customer as any).city].filter(Boolean).join(' ')}
+            </p>
+          )}
           {(report.customer as any)?.phone && (
             <p className="text-[13px] text-[var(--ink-3)]">{(report.customer as any).phone}</p>
           )}
