@@ -114,6 +114,13 @@
 }
 
 /* ─────────── Kassen Buch utility layer ─────────── */
+/* Wrapped in @layer components so Tailwind utilities (e.g. `hidden`, `flex`,
+   `md:flex`) win over these rules on the cascade. Without the layer, these
+   rules ship after `@tailwind utilities` and — at equal specificity — the
+   later declaration wins, which caused `.kb-top` to ignore `hidden md:flex`
+   on mobile. */
+
+@layer components {
 
 .kb-label {
   font-size: 11px;
@@ -318,3 +325,6 @@
   letter-spacing: 0.02em;
   text-transform: uppercase;
 }
+
+}
+

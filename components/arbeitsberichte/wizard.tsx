@@ -252,7 +252,7 @@ export function Wizard({ profile }: WizardProps) {
       </div>
 
       {/* Steps */}
-      <div className="bg-white rounded-kb border border-[var(--rule)] p-6 shadow-xs">
+      <div className="bg-white rounded-kb border border-[var(--rule)] p-4 sm:p-6 shadow-xs">
         {step === 1 && <StepKunde data={data} onNext={saveStep1} />}
         {step === 2 && <StepTaetigkeit data={data} onNext={saveStep2} />}
         {step === 3 && <StepGeraete data={data} onNext={saveStep3} />}
