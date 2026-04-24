@@ -27,8 +27,8 @@ export function StepTaetigkeit({ data, onNext }: StepTaetigkeitProps) {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-slate-900">Ausgeführte Tätigkeit</h2>
-      <div>
+      <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-[var(--ink)]">Ausgeführte Tätigkeit</h2>
+      <div className="space-y-1.5">
         <Label htmlFor="description">Beschreibung der durchgeführten Arbeiten *</Label>
         <textarea
           id="description"
@@ -36,9 +36,10 @@ export function StepTaetigkeit({ data, onNext }: StepTaetigkeitProps) {
           onChange={e => setDescription(e.target.value)}
           placeholder="Welche Arbeiten wurden ausgeführt?"
           rows={7}
-          className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm
-            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-            resize-none placeholder:text-slate-400"
+          className="w-full rounded-md border border-[var(--rule)] bg-white px-3 py-2 text-[13.5px] text-[var(--ink)]
+            tracking-[-0.003em] placeholder:text-[var(--ink-4)] transition-[border-color,box-shadow]
+            focus-visible:outline-none focus-visible:border-[var(--blue)] focus-visible:ring-[3px] focus-visible:ring-[var(--blue)]/15
+            resize-none"
         />
       </div>
       <Button className="w-full" onClick={handleNext}

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Logo } from '@/components/layout/logo'
 import { toast } from 'sonner'
 
 export default function LoginPage() {
@@ -30,30 +31,35 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Arbeitsbericht</CardTitle>
-          <CardDescription>Melde dich mit deinem Firmen-Account an.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">E-Mail</Label>
-              <Input id="email" type="email" value={email}
-                onChange={e => setEmail(e.target.value)} required autoComplete="email" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Passwort</Label>
-              <Input id="password" type="password" value={password}
-                onChange={e => setPassword(e.target.value)} required autoComplete="current-password" />
-            </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Anmelden...' : 'Anmelden'}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+    <div className="min-h-screen flex items-center justify-center bg-[var(--paper-2)] px-4">
+      <div className="w-full max-w-md">
+        <div className="flex justify-center mb-6">
+          <Logo height={28} />
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Anmelden</CardTitle>
+            <CardDescription>Melde dich mit deinem Firmen-Account an.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="email">E-Mail</Label>
+                <Input id="email" type="email" value={email}
+                  onChange={e => setEmail(e.target.value)} required autoComplete="email" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="password">Passwort</Label>
+                <Input id="password" type="password" value={password}
+                  onChange={e => setPassword(e.target.value)} required autoComplete="current-password" />
+              </div>
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? 'Anmelden...' : 'Anmelden'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

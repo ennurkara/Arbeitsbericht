@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { Navbar } from '@/components/layout/navbar'
+import { Sidebar } from '@/components/layout/sidebar'
+import { MobileNav } from '@/components/layout/mobile-nav'
+import { TopBar } from '@/components/layout/topbar'
 import type { Profile } from '@/lib/types'
 
 export default async function ProtectedLayout({ children }: { children: React.ReactNode }) {
@@ -13,11 +15,15 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   if (!profile) redirect('/login')
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <Navbar profile={profile as Profile} />
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 pb-24 md:pb-8">
-        {children}
-      </main>
+    <div className="min-h-screen bg-[var(--paper-2)] md:flex">
+      <Sidebar profile={profile as Profile} />
+      <div className="flex flex-col flex-1 min-w-0">
+        <MobileNav profile={profile as Profile} />
+        <TopBar />
+        <main className="flex-1 overflow-x-hidden px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-10 kb-scroll">
+          {children}
+        </main>
+      </div>
     </div>
   )
 }
