@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { MapPin, Loader2 } from 'lucide-react'
 import { calculateWorkHours, formatHoursMinutes, nowLocalISO16 } from '@/lib/utils'
-import { detectCurrentCity } from '@/lib/geolocation'
+import { detectCurrentAddress } from '@/lib/geolocation'
 import type { WizardData } from './wizard'
 
 interface StepAufwandProps {
@@ -27,10 +27,10 @@ export function StepAufwand({ data, onNext }: StepAufwandProps) {
   async function locate(field: 'from' | 'to') {
     setLocatingField(field)
     try {
-      const city = await detectCurrentCity()
-      if (field === 'from') setTravelFrom(city)
-      else setTravelTo(city)
-      toast.success(`Standort: ${city}`)
+      const { formatted } = await detectCurrentAddress()
+      if (field === 'from') setTravelFrom(formatted)
+      else setTravelTo(formatted)
+      toast.success(`Standort: ${formatted}`)
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Standort nicht verfügbar'
       toast.error(msg)

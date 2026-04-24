@@ -23,7 +23,14 @@ export function StepKunde({ data, onNext }: StepKundeProps) {
   const [selectedId, setSelectedId] = useState(data.customerId)
   const [showNewForm, setShowNewForm] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [newCustomer, setNewCustomer] = useState({ name: '', address: '', phone: '', email: '' })
+  const [newCustomer, setNewCustomer] = useState({
+    name: '',
+    address: '',
+    postal_code: '',
+    city: '',
+    phone: '',
+    email: '',
+  })
 
   useEffect(() => {
     supabase.from('customers').select('*').order('name')
@@ -43,6 +50,8 @@ export function StepKunde({ data, onNext }: StepKundeProps) {
     const payload = {
       name: newCustomer.name.trim(),
       address: newCustomer.address || null,
+      postal_code: newCustomer.postal_code || null,
+      city: newCustomer.city || null,
       phone: newCustomer.phone || null,
       email: newCustomer.email || null,
     }
@@ -62,7 +71,7 @@ export function StepKunde({ data, onNext }: StepKundeProps) {
     )
     setSelectedId(created.id)
     setShowNewForm(false)
-    setNewCustomer({ name: '', address: '', phone: '', email: '' })
+    setNewCustomer({ name: '', address: '', postal_code: '', city: '', phone: '', email: '' })
     setIsLoading(false)
     toast.success('Kunde gespeichert')
   }
@@ -122,10 +131,24 @@ export function StepKunde({ data, onNext }: StepKundeProps) {
               onChange={e => setNewCustomer(p => ({ ...p, name: e.target.value }))} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="caddress">Adresse</Label>
+            <Label htmlFor="caddress">Straße + Nr.</Label>
             <Input id="caddress" value={newCustomer.address}
               onChange={e => setNewCustomer(p => ({ ...p, address: e.target.value }))}
-              placeholder="Straße + Nr., PLZ Ort" />
+              placeholder="z.B. Hauptstraße 12" />
+          </div>
+          <div className="grid grid-cols-[1fr_2fr] gap-3">
+            <div className="space-y-1.5 min-w-0">
+              <Label htmlFor="cplz">PLZ</Label>
+              <Input id="cplz" inputMode="numeric" value={newCustomer.postal_code}
+                onChange={e => setNewCustomer(p => ({ ...p, postal_code: e.target.value }))}
+                placeholder="82239" />
+            </div>
+            <div className="space-y-1.5 min-w-0">
+              <Label htmlFor="ccity">Ort</Label>
+              <Input id="ccity" value={newCustomer.city}
+                onChange={e => setNewCustomer(p => ({ ...p, city: e.target.value }))}
+                placeholder="Alling" />
+            </div>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="cphone">Telefon</Label>
