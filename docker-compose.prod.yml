@@ -1,0 +1,27 @@
+services:
+  arbeitsbericht:
+    image: ghcr.io/ennurkara/arbeitsbericht:latest
+    pull_policy: always
+    container_name: arbeitsbericht
+    restart: unless-stopped
+    env_file:
+      - .env.local
+    networks:
+      - n8n_web
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=n8n_web
+      - traefik.http.routers.arbeitsbericht.rule=Host(`arbeitsbericht.kassen-buch.cloud`)
+      - traefik.http.routers.arbeitsbericht.entrypoints=websecure
+      - traefik.http.routers.arbeitsbericht.tls=true
+      - traefik.http.routers.arbeitsbericht.tls.certresolver=letsencrypt
+      - traefik.http.services.arbeitsbericht.loadbalancer.server.port=3000
+      - traefik.http.routers.arbeitsbericht-http.rule=Host(`arbeitsbericht.kassen-buch.cloud`)
+      - traefik.http.routers.arbeitsbericht-http.entrypoints=web
+      - traefik.http.routers.arbeitsbericht-http.middlewares=arbeitsbericht-redirect
+      - traefik.http.middlewares.arbeitsbericht-redirect.redirectscheme.scheme=https
+      - traefik.http.middlewares.arbeitsbericht-redirect.redirectscheme.permanent=true
+
+networks:
+  n8n_web:
+    external: true
