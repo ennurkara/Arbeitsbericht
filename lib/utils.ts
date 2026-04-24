@@ -25,9 +25,24 @@ export function formatDateTime(iso: string): string {
   }).format(new Date(iso))
 }
 
+// Arbeitsdauer aus Beginn/Ende, auf die Minute gerundet und als Dezimal-
+// stunden zurückgegeben. Der DB-Typ ist numeric(5,2), also reicht 1/60 ≈ 0.02
+// Auflösung. Beispiel: 2h 40min → 2.67.
 export function calculateWorkHours(startIso: string, endIso: string): number {
   const diffMs = new Date(endIso).getTime() - new Date(startIso).getTime()
-  return Math.max(0, Math.round((diffMs / 3600000) * 10) / 10)
+  const minutes = Math.max(0, Math.round(diffMs / 60000))
+  return Math.round((minutes / 60) * 100) / 100
+}
+
+// Formatiert Dezimalstunden als "Xh Ymin" für die Anzeige.
+export function formatHoursMinutes(hours: number): string {
+  if (!Number.isFinite(hours) || hours <= 0) return '—'
+  const totalMinutes = Math.round(hours * 60)
+  const h = Math.floor(totalMinutes / 60)
+  const m = totalMinutes % 60
+  if (h === 0) return `${m} min`
+  if (m === 0) return `${h} h`
+  return `${h} h ${m} min`
 }
 
 // `<input type="datetime-local">` erwartet `YYYY-MM-DDTHH:mm` in Lokalzeit.

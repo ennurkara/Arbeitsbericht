@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
-import { calculateWorkHours, nowLocalISO16 } from '@/lib/utils'
+import { calculateWorkHours, formatHoursMinutes, nowLocalISO16 } from '@/lib/utils'
 import type { WizardData } from './wizard'
 
 interface StepAufwandProps {
@@ -62,11 +62,13 @@ export function StepAufwand({ data, onNext }: StepAufwandProps) {
 
       <div className="space-y-1.5">
         <Label htmlFor="workHours">Arbeitsaufwand (Stunden) *</Label>
-        <Input id="workHours" type="number" min="0" step="0.5"
+        <Input id="workHours" type="number" min="0" step="0.01"
           value={workHours} onChange={e => setWorkHours(e.target.value)}
-          placeholder="z.B. 4.5" />
+          placeholder="z.B. 2.67" />
         <p className="text-[11.5px] text-[var(--ink-4)]">
-          Wird automatisch aus Start/Ende berechnet, manuell überschreibbar
+          {workHours && parseFloat(workHours) > 0
+            ? `${formatHoursMinutes(parseFloat(workHours))} · wird aus Start/Ende minutengenau berechnet, manuell überschreibbar`
+            : 'Wird aus Start/Ende minutengenau berechnet, manuell überschreibbar'}
         </p>
       </div>
 

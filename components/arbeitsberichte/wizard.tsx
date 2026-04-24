@@ -43,7 +43,7 @@ export function Wizard({ profile }: WizardProps) {
     description: '',
     deviceIds: [],
     workHours: '',
-    travelFrom: '',
+    travelFrom: 'Alling',
     travelTo: '',
     startTime: nowLocalISO16(),
     endTime: '',
