@@ -24,9 +24,9 @@ export default async function ArbeitsberichtePage() {
 
   return (
     <div className="max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
         <div>
-          <h1 className="text-[28px] font-semibold tracking-[-0.022em] text-[var(--ink)] leading-tight">
+          <h1 className="text-2xl sm:text-[28px] font-semibold tracking-[-0.022em] text-[var(--ink)] leading-tight">
             Arbeitsberichte
           </h1>
           <p className="text-sm text-[var(--ink-3)] mt-1">
@@ -34,7 +34,7 @@ export default async function ArbeitsberichtePage() {
           </p>
         </div>
         {canCreate && (
-          <Button asChild>
+          <Button asChild className="self-start sm:self-auto">
             <Link href="/arbeitsberichte/neu">
               <Plus className="h-4 w-4" />Neuer Bericht
             </Link>

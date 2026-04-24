@@ -35,7 +35,7 @@ export default async function DashboardPage() {
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-[28px] font-semibold tracking-[-0.022em] text-[var(--ink)] leading-tight">
+        <h1 className="text-2xl sm:text-[28px] font-semibold tracking-[-0.022em] text-[var(--ink)] leading-tight break-words">
           Willkommen, {profile?.full_name}
         </h1>
         <p className="text-sm text-[var(--ink-3)] mt-1">Digitale Arbeitsberichte</p>

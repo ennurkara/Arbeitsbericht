@@ -16,7 +16,7 @@ export default async function NeuerBerichtPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <h1 className="text-[28px] font-semibold tracking-[-0.022em] text-[var(--ink)] leading-tight mb-6">
+      <h1 className="text-2xl sm:text-[28px] font-semibold tracking-[-0.022em] text-[var(--ink)] leading-tight mb-6">
         Neuer Arbeitsbericht
       </h1>
       <Wizard profile={profile as Profile} />

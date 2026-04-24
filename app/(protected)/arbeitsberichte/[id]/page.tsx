@@ -51,11 +51,11 @@ export default async function BerichtDetailPage({ params }: PageProps) {
 
   return (
     <div className="max-w-3xl mx-auto">
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex items-center gap-2 sm:gap-3 mb-6 flex-wrap">
         <Button variant="ghost" size="icon" asChild>
           <Link href="/arbeitsberichte" aria-label="Zurück"><ArrowLeft className="h-4 w-4" /></Link>
         </Button>
-        <h1 className="text-xl font-semibold tracking-[-0.01em] text-[var(--ink)]">
+        <h1 className="text-lg sm:text-xl font-semibold tracking-[-0.01em] text-[var(--ink)]">
           {report.report_number ?? 'Entwurf'}
         </h1>
         <ReportStatusBadge status={report.status as WorkReportStatus} />
