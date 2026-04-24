@@ -29,3 +29,12 @@ export function calculateWorkHours(startIso: string, endIso: string): number {
   const diffMs = new Date(endIso).getTime() - new Date(startIso).getTime()
   return Math.max(0, Math.round((diffMs / 3600000) * 10) / 10)
 }
+
+// `<input type="datetime-local">` erwartet `YYYY-MM-DDTHH:mm` in Lokalzeit.
+// `toISOString()` ist UTC — bei DE-Nutzern landet das Feld 1–2h in der Vergangenheit.
+// Diese Helper-Funktion liefert den Wert in Browser-Lokalzeit.
+export function nowLocalISO16(): string {
+  const d = new Date()
+  const tz = d.getTimezoneOffset() * 60000
+  return new Date(d.getTime() - tz).toISOString().slice(0, 16)
+}

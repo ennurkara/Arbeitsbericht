@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { deviceDisplayName } from '@/lib/utils'
+import { deviceDisplayName, nowLocalISO16 } from '@/lib/utils'
 import type { Profile } from '@/lib/types'
 import { StepKunde } from './step-kunde'
 import { StepTaetigkeit } from './step-taetigkeit'
@@ -45,7 +45,7 @@ export function Wizard({ profile }: WizardProps) {
     workHours: '',
     travelFrom: '',
     travelTo: '',
-    startTime: new Date().toISOString().slice(0, 16),
+    startTime: nowLocalISO16(),
     endTime: '',
     technicianSignature: null,
     customerSignature: null,
