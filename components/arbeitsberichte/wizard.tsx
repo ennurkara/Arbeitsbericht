@@ -73,7 +73,9 @@ export function Wizard({ profile }: WizardProps) {
         .select()
         .single()
       if (error || !created) {
-        toast.error('Fehler beim Speichern des Entwurfs')
+        toast.error('Fehler beim Speichern des Entwurfs', {
+          description: error?.message ?? 'Unbekannter Fehler',
+        })
         return
       }
       updateData({ reportId: created.id })
