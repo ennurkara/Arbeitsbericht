@@ -111,6 +111,24 @@
     line-height: 1.45;
     letter-spacing: -0.003em;
   }
+
+  /* iOS Safari reserviert für die native datetime-local UI mehr Platz als der
+     Container bietet — der Wert ragt rechts aus dem Input. `appearance: none`
+     + flex-align stellt den Wert links dar und respektiert die Container-Breite. */
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"] {
+    -webkit-appearance: none;
+    appearance: none;
+    min-height: 36px;
+    min-width: 0;
+    max-width: 100%;
+  }
+  input[type="date"]::-webkit-date-and-time-value,
+  input[type="time"]::-webkit-date-and-time-value,
+  input[type="datetime-local"]::-webkit-date-and-time-value {
+    text-align: left;
+  }
 }
 
 /* ─────────── Kassen Buch utility layer ─────────── */

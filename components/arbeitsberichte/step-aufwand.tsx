@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
-import { calculateWorkHours } from '@/lib/utils'
+import { calculateWorkHours, nowLocalISO16 } from '@/lib/utils'
 import type { WizardData } from './wizard'
 
 interface StepAufwandProps {
@@ -14,7 +14,7 @@ interface StepAufwandProps {
 }
 
 export function StepAufwand({ data, onNext }: StepAufwandProps) {
-  const [startTime, setStartTime] = useState(data.startTime)
+  const [startTime, setStartTime] = useState(data.startTime || nowLocalISO16())
   const [endTime, setEndTime] = useState(data.endTime)
   const [workHours, setWorkHours] = useState(data.workHours)
   const [travelFrom, setTravelFrom] = useState(data.travelFrom)
@@ -46,15 +46,17 @@ export function StepAufwand({ data, onNext }: StepAufwandProps) {
       <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-[var(--ink)]">Aufwand &amp; Anfahrt</h2>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 min-w-0">
           <Label htmlFor="startTime">Beginn</Label>
           <Input id="startTime" type="datetime-local" value={startTime}
-            onChange={e => setStartTime(e.target.value)} />
+            onChange={e => setStartTime(e.target.value)}
+            className="max-w-full appearance-none" />
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 min-w-0">
           <Label htmlFor="endTime">Ende</Label>
           <Input id="endTime" type="datetime-local" value={endTime}
-            onChange={e => setEndTime(e.target.value)} />
+            onChange={e => setEndTime(e.target.value)}
+            className="max-w-full appearance-none" />
         </div>
       </div>
 
