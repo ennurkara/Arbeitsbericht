@@ -212,26 +212,43 @@ export function Wizard({ profile }: WizardProps) {
     setShowPdf(true)
 
     setTimeout(async () => {
+      let pdfBlob: Blob | null = null
       try {
         const { exportReportToPdf } = await import('./pdf-export')
-        const pdfBlob = await exportReportToPdf(reportRow?.report_number ?? null)
+        pdfBlob = await exportReportToPdf(reportRow?.report_number ?? null)
         toast.success('PDF wurde heruntergeladen')
-
-        const pdfPath = `${merged.reportId}.pdf`
-        const { error: uploadErr } = await supabase.storage
-          .from('work-report-pdfs')
-          .upload(pdfPath, pdfBlob, { contentType: 'application/pdf', upsert: true })
-        if (uploadErr) {
-          toast.error('PDF konnte nicht in die Warenwirtschaft hochgeladen werden')
-        } else {
-          await supabase
-            .from('work_reports')
-            .update({ pdf_path: pdfPath, pdf_uploaded_at: new Date().toISOString() })
-            .eq('id', merged.reportId)
-        }
-      } catch {
-        toast.error('Fehler beim Erstellen des PDFs')
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        toast.error('Fehler beim Erstellen des PDFs', { description: msg })
       }
+
+      if (pdfBlob) {
+        try {
+          const pdfPath = `${merged.reportId}.pdf`
+          const { error: uploadErr } = await supabase.storage
+            .from('work-report-pdfs')
+            .upload(pdfPath, pdfBlob, { contentType: 'application/pdf', upsert: true })
+          if (uploadErr) {
+            toast.error('PDF-Upload in die Warenwirtschaft fehlgeschlagen', {
+              description: uploadErr.message,
+            })
+          } else {
+            const { error: saveErr } = await supabase
+              .from('work_reports')
+              .update({ pdf_path: pdfPath, pdf_uploaded_at: new Date().toISOString() })
+              .eq('id', merged.reportId)
+            if (saveErr) {
+              toast.error('PDF-Pfad konnte nicht gespeichert werden', {
+                description: saveErr.message,
+              })
+            }
+          }
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e)
+          toast.error('Unerwarteter Fehler beim PDF-Upload', { description: msg })
+        }
+      }
+
       router.push('/arbeitsberichte')
     }, 400)
   }
