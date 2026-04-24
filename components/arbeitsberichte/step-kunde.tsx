@@ -22,7 +22,7 @@ export function StepKunde({ data, onNext }: StepKundeProps) {
   const [selectedId, setSelectedId] = useState(data.customerId)
   const [showNewForm, setShowNewForm] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [newCustomer, setNewCustomer] = useState({ name: '', address: '', city: '', phone: '' })
+  const [newCustomer, setNewCustomer] = useState({ name: '', address: '', phone: '', email: '' })
 
   useEffect(() => {
     supabase.from('customers').select('*').order('name')
@@ -39,9 +39,15 @@ export function StepKunde({ data, onNext }: StepKundeProps) {
       return
     }
     setIsLoading(true)
+    const payload = {
+      name: newCustomer.name.trim(),
+      address: newCustomer.address || null,
+      phone: newCustomer.phone || null,
+      email: newCustomer.email || null,
+    }
     const { data: created, error } = await supabase
       .from('customers')
-      .insert({ ...newCustomer })
+      .insert(payload)
       .select()
       .single()
 
@@ -55,7 +61,7 @@ export function StepKunde({ data, onNext }: StepKundeProps) {
     )
     setSelectedId(created.id)
     setShowNewForm(false)
-    setNewCustomer({ name: '', address: '', city: '', phone: '' })
+    setNewCustomer({ name: '', address: '', phone: '', email: '' })
     setIsLoading(false)
     toast.success('Kunde gespeichert')
   }
@@ -92,7 +98,7 @@ export function StepKunde({ data, onNext }: StepKundeProps) {
                 : 'hover:bg-slate-50 text-slate-700'
             }`}>
             <span className="font-medium">{customer.name}</span>
-            {customer.city && <span className="text-slate-400 ml-2">· {customer.city}</span>}
+            {customer.address && <span className="text-slate-400 ml-2">· {customer.address}</span>}
           </button>
         ))}
       </div>
@@ -110,19 +116,20 @@ export function StepKunde({ data, onNext }: StepKundeProps) {
               onChange={e => setNewCustomer(p => ({ ...p, name: e.target.value }))} />
           </div>
           <div>
-            <Label htmlFor="caddress">Straße + Nr.</Label>
+            <Label htmlFor="caddress">Adresse</Label>
             <Input id="caddress" value={newCustomer.address}
-              onChange={e => setNewCustomer(p => ({ ...p, address: e.target.value }))} />
-          </div>
-          <div>
-            <Label htmlFor="ccity">PLZ + Ort</Label>
-            <Input id="ccity" value={newCustomer.city}
-              onChange={e => setNewCustomer(p => ({ ...p, city: e.target.value }))} />
+              onChange={e => setNewCustomer(p => ({ ...p, address: e.target.value }))}
+              placeholder="Straße + Nr., PLZ Ort" />
           </div>
           <div>
             <Label htmlFor="cphone">Telefon</Label>
             <Input id="cphone" value={newCustomer.phone}
               onChange={e => setNewCustomer(p => ({ ...p, phone: e.target.value }))} />
+          </div>
+          <div>
+            <Label htmlFor="cemail">E-Mail</Label>
+            <Input id="cemail" type="email" value={newCustomer.email}
+              onChange={e => setNewCustomer(p => ({ ...p, email: e.target.value }))} />
           </div>
           <div className="flex gap-2">
             <Button size="sm" onClick={handleCreateCustomer} disabled={isLoading}>Speichern</Button>

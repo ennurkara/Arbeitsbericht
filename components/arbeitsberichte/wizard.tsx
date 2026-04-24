@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { cn } from '@/lib/utils'
+import { deviceDisplayName } from '@/lib/utils'
 import type { Profile } from '@/lib/types'
 import { StepKunde } from './step-kunde'
 import { StepTaetigkeit } from './step-taetigkeit'
@@ -167,32 +167,36 @@ export function Wizard({ profile }: WizardProps) {
       .eq('id', merged.reportId)
       .single()
 
-    for (const deviceId of merged.deviceIds) {
+    if (merged.deviceIds.length > 0) {
       await supabase
         .from('devices')
         .update({ status: 'im_einsatz' })
-        .eq('id', deviceId)
-      await supabase
-        .from('device_movements')
-        .insert({
-          device_id: deviceId,
-          user_id: profile.id,
-          action: 'entnahme',
-          quantity: 1,
-          note: `Arbeitsbericht ${reportRow?.report_number ?? merged.reportId}`,
-        })
+        .in('id', merged.deviceIds)
     }
 
     const [{ data: customerRow }, { data: deviceRows }] = await Promise.all([
       supabase.from('customers').select('*').eq('id', merged.customerId).single(),
       merged.deviceIds.length > 0
-        ? supabase.from('devices').select('id, name, serial_number').in('id', merged.deviceIds)
-        : Promise.resolve({ data: [] }),
+        ? supabase
+            .from('devices')
+            .select(`
+              id,
+              serial_number,
+              model:models(modellname, variante, manufacturer:manufacturers(name))
+            `)
+            .in('id', merged.deviceIds)
+        : Promise.resolve({ data: [] as Array<{ id: string; serial_number: string | null; model: any }> }),
     ])
+
+    const pdfDevices = (deviceRows ?? []).map((d: any) => ({
+      id: d.id,
+      name: deviceDisplayName(d.model),
+      serial_number: d.serial_number,
+    }))
 
     setPdfPayload({
       customer: customerRow,
-      devices: deviceRows ?? [],
+      devices: pdfDevices,
       reportNumber: reportRow?.report_number ?? null,
       report: {
         description: merged.description,
@@ -210,8 +214,21 @@ export function Wizard({ profile }: WizardProps) {
     setTimeout(async () => {
       try {
         const { exportReportToPdf } = await import('./pdf-export')
-        await exportReportToPdf(reportRow?.report_number ?? null)
+        const pdfBlob = await exportReportToPdf(reportRow?.report_number ?? null)
         toast.success('PDF wurde heruntergeladen')
+
+        const pdfPath = `${merged.reportId}.pdf`
+        const { error: uploadErr } = await supabase.storage
+          .from('work-report-pdfs')
+          .upload(pdfPath, pdfBlob, { contentType: 'application/pdf', upsert: true })
+        if (uploadErr) {
+          toast.error('PDF konnte nicht in die Warenwirtschaft hochgeladen werden')
+        } else {
+          await supabase
+            .from('work_reports')
+            .update({ pdf_path: pdfPath, pdf_uploaded_at: new Date().toISOString() })
+            .eq('id', merged.reportId)
+        }
       } catch {
         toast.error('Fehler beim Erstellen des PDFs')
       }

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Search, X } from 'lucide-react'
+import { deviceDisplayName } from '@/lib/utils'
 import type { Device } from '@/lib/types'
 import type { WizardData } from './wizard'
 
@@ -13,6 +14,18 @@ interface StepGeraeteProps {
   data: WizardData
   onNext: (patch: Partial<WizardData>) => Promise<void>
 }
+
+const DEVICE_SELECT = `
+  id,
+  serial_number,
+  status,
+  model:models(
+    modellname,
+    variante,
+    manufacturer:manufacturers(name),
+    category:categories(name, icon)
+  )
+`
 
 export function StepGeraete({ data, onNext }: StepGeraeteProps) {
   const supabase = createClient()
@@ -24,16 +37,25 @@ export function StepGeraete({ data, onNext }: StepGeraeteProps) {
   useEffect(() => {
     supabase
       .from('devices')
-      .select('id, name, serial_number, status, category:categories(name, icon)')
+      .select(DEVICE_SELECT)
       .eq('status', 'lager')
-      .order('name')
-      .then(({ data: rows }) => setDevices((rows ?? []) as unknown as Device[]))
+      .order('serial_number', { nullsFirst: false })
+      .then(({ data: rows }) => {
+        const list = ((rows ?? []) as unknown as Device[]).slice()
+        list.sort((a, b) =>
+          deviceDisplayName(a.model).localeCompare(deviceDisplayName(b.model))
+        )
+        setDevices(list)
+      })
   }, [])
 
-  const filtered = devices.filter(d =>
-    d.name.toLowerCase().includes(search.toLowerCase()) ||
-    (d.serial_number ?? '').toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = devices.filter(d => {
+    const needle = search.toLowerCase()
+    return (
+      deviceDisplayName(d.model).toLowerCase().includes(needle) ||
+      (d.serial_number ?? '').toLowerCase().includes(needle)
+    )
+  })
 
   function toggleDevice(id: string) {
     setSelectedIds(prev =>
@@ -58,7 +80,7 @@ export function StepGeraete({ data, onNext }: StepGeraeteProps) {
         <div className="flex flex-wrap gap-2">
           {selectedDevices.map(d => (
             <Badge key={d.id} variant="secondary" className="flex items-center gap-1 py-1">
-              {d.name}
+              {deviceDisplayName(d.model)}
               {d.serial_number && <span className="text-slate-400 text-xs">· {d.serial_number}</span>}
               <button onClick={() => toggleDevice(d.id)} className="ml-1 hover:text-red-500">
                 <X className="h-3 w-3" />
@@ -85,13 +107,13 @@ export function StepGeraete({ data, onNext }: StepGeraeteProps) {
                 ? 'bg-blue-50 text-blue-700'
                 : 'hover:bg-slate-50 text-slate-700'
             }`}>
-            <span className="font-medium">{device.name}</span>
+            <span className="font-medium">{deviceDisplayName(device.model)}</span>
             {device.serial_number && (
               <span className="text-slate-400 ml-2">SN: {device.serial_number}</span>
             )}
-            {device.category && (
+            {device.model?.category && (
               <span className="text-xs text-slate-400 ml-2">
-                · {(device.category as any).name}
+                · {device.model.category.name}
               </span>
             )}
           </button>

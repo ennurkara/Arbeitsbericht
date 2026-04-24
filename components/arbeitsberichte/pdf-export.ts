@@ -1,4 +1,6 @@
-export async function exportReportToPdf(reportNumber: string | null): Promise<void> {
+export async function exportReportToPdf(
+  reportNumber: string | null,
+): Promise<Blob> {
   const element = document.getElementById('pdf-template')
   if (!element) throw new Error('PDF template element not found')
 
@@ -19,5 +21,7 @@ export async function exportReportToPdf(reportNumber: string | null): Promise<vo
   const pdfHeight = (canvas.height * pdfWidth) / canvas.width
 
   pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight)
+
   pdf.save(`${reportNumber ?? 'arbeitsbericht'}.pdf`)
+  return pdf.output('blob')
 }

@@ -3,7 +3,7 @@ import { redirect, notFound } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
-import { formatDateTime } from '@/lib/utils'
+import { formatDateTime, deviceDisplayName } from '@/lib/utils'
 import { ArrowLeft } from 'lucide-react'
 import type { UserRole } from '@/lib/types'
 
@@ -28,14 +28,23 @@ export default async function BerichtDetailPage({ params }: PageProps) {
       *,
       customer:customers(*),
       technician:profiles!work_reports_technician_id_fkey(full_name),
-      devices:work_report_devices(device:devices(id, name, serial_number))
+      devices:work_report_devices(device:devices(
+        id,
+        serial_number,
+        model:models(
+          modellname,
+          variante,
+          manufacturer:manufacturers(name)
+        )
+      ))
     `)
     .eq('id', id)
     .single()
 
   if (!report) notFound()
 
-  const canView = role === 'admin' || report.technician_id === user.id
+  const canView =
+    role === 'admin' || role === 'viewer' || report.technician_id === user.id
   if (!canView) redirect('/arbeitsberichte')
 
   const devices = (report.devices ?? []).map((d: any) => d.device)
@@ -70,8 +79,8 @@ export default async function BerichtDetailPage({ params }: PageProps) {
           {(report.customer as any)?.address && (
             <p className="text-sm text-slate-500">{(report.customer as any).address}</p>
           )}
-          {(report.customer as any)?.city && (
-            <p className="text-sm text-slate-500">{(report.customer as any).city}</p>
+          {(report.customer as any)?.phone && (
+            <p className="text-sm text-slate-500">{(report.customer as any).phone}</p>
           )}
         </div>
 
@@ -104,7 +113,7 @@ export default async function BerichtDetailPage({ params }: PageProps) {
             <div className="space-y-2">
               {devices.map((d: any) => (
                 <div key={d.id} className="flex items-center justify-between text-sm">
-                  <span className="text-slate-700 font-medium">{d.name}</span>
+                  <span className="text-slate-700 font-medium">{deviceDisplayName(d.model)}</span>
                   {d.serial_number && (
                     <span className="text-slate-400 font-mono text-xs">{d.serial_number}</span>
                   )}
