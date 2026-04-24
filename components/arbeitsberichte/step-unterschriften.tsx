@@ -4,7 +4,7 @@ import { useRef, useState, forwardRef } from 'react'
 import SignatureCanvas from 'react-signature-canvas'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
-import { RotateCcw } from 'lucide-react'
+import { RotateCcw, Check } from 'lucide-react'
 import type { WizardData } from './wizard'
 
 const SignaturePad = forwardRef<SignatureCanvas, { canvasProps: any; backgroundColor: string }>(
@@ -43,20 +43,23 @@ export function StepUnterschriften({ data, technicianName, onFinish }: StepUnter
   }
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-lg font-semibold text-slate-900">Unterschriften</h2>
+    <div className="space-y-5">
+      <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-[var(--ink)]">Unterschriften</h2>
 
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className="text-sm font-medium text-slate-700">
-            Techniker: {technicianName}
+          <label className="text-[13px] font-medium text-[var(--ink-2)]">
+            Techniker: <span className="text-[var(--ink)]">{technicianName}</span>
           </label>
-          <button onClick={() => techRef.current?.clear()}
-            className="text-xs text-slate-400 hover:text-slate-600 flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => techRef.current?.clear()}
+            className="text-[11.5px] text-[var(--ink-3)] hover:text-[var(--ink)] flex items-center gap-1 transition-colors"
+          >
             <RotateCcw className="h-3 w-3" />Löschen
           </button>
         </div>
-        <div className="border-2 border-dashed border-slate-300 rounded-lg overflow-hidden bg-white">
+        <div className="border-2 border-dashed border-[var(--rule)] rounded-md overflow-hidden bg-white">
           <SignaturePad
             ref={techRef}
             canvasProps={{
@@ -70,13 +73,16 @@ export function StepUnterschriften({ data, technicianName, onFinish }: StepUnter
 
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className="text-sm font-medium text-slate-700">Unterschrift Kunde</label>
-          <button onClick={() => customerRef.current?.clear()}
-            className="text-xs text-slate-400 hover:text-slate-600 flex items-center gap-1">
+          <label className="text-[13px] font-medium text-[var(--ink-2)]">Unterschrift Kunde</label>
+          <button
+            type="button"
+            onClick={() => customerRef.current?.clear()}
+            className="text-[11.5px] text-[var(--ink-3)] hover:text-[var(--ink)] flex items-center gap-1 transition-colors"
+          >
             <RotateCcw className="h-3 w-3" />Löschen
           </button>
         </div>
-        <div className="border-2 border-dashed border-slate-300 rounded-lg overflow-hidden bg-white">
+        <div className="border-2 border-dashed border-[var(--rule)] rounded-md overflow-hidden bg-white">
           <SignaturePad
             ref={customerRef}
             canvasProps={{
@@ -89,11 +95,16 @@ export function StepUnterschriften({ data, technicianName, onFinish }: StepUnter
       </div>
 
       <Button
-        className="w-full bg-green-600 hover:bg-green-700 text-white py-3 text-base font-medium"
+        size="lg"
+        className="w-full"
         onClick={handleFinish}
         disabled={isLoading}
       >
-        {isLoading ? 'Wird verarbeitet...' : '✓ Fertigstellen & PDF erstellen'}
+        {isLoading ? 'Wird verarbeitet...' : (
+          <>
+            <Check className="h-4 w-4" />Fertigstellen &amp; PDF erstellen
+          </>
+        )}
       </Button>
     </div>
   )
