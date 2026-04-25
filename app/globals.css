@@ -135,21 +135,34 @@
     text-align: left;
   }
 
-  /* Chrome/Edge desktop: calendar picker icon was floating in the middle of the
-     input because appearance:none removes the default layout. Pin it to the
-     right edge so the icon sits where users expect it. */
-  input[type="date"]::-webkit-calendar-picker-indicator,
-  input[type="time"]::-webkit-calendar-picker-indicator,
-  input[type="datetime-local"]::-webkit-calendar-picker-indicator {
-    margin-left: auto;
-    cursor: pointer;
-    opacity: 0.55;
-  }
-  input[type="date"]:hover::-webkit-calendar-picker-indicator,
-  input[type="time"]:hover::-webkit-calendar-picker-indicator,
-  input[type="datetime-local"]:hover::-webkit-calendar-picker-indicator {
-    opacity: 0.85;
-  }
+}
+
+/* Chrome/Edge desktop: calendar picker icon stayed mid-line because the value
+   pseudo (::-webkit-date-and-time-value) is computed with the input's full
+   width — so margin-left:auto on the picker had nothing to push against.
+   Force the value to shrink (flex:0) so it only takes its content width and
+   the picker auto-margin actually moves the icon to the right edge.
+   Rules pulled OUT of @layer base because layer-cascading was suppressing
+   them in production builds. */
+
+input[type="date"]::-webkit-date-and-time-value,
+input[type="time"]::-webkit-date-and-time-value,
+input[type="datetime-local"]::-webkit-date-and-time-value {
+  flex: 0 0 auto;
+  text-align: left;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  margin-left: auto !important;
+  cursor: pointer;
+  opacity: 0.55;
+}
+input[type="date"]:hover::-webkit-calendar-picker-indicator,
+input[type="time"]:hover::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]:hover::-webkit-calendar-picker-indicator {
+  opacity: 0.85;
 }
 
 /* ─────────── Kassen Buch utility layer ─────────── */
