@@ -173,11 +173,12 @@ export async function renderReportPdf(input: ReportPdfInput): Promise<Uint8Array
   checkBox(form, 'kb_svc_hpf', svc.hpf)
 
   // ─── Ausgeführte Leistung ────────────────────────────────────────────
-  // Beschreibungstext über Titelzeile + 6 Zeilen (z1..z6) verteilen.
-  const descLines = wrapLines(input.report.description ?? '', 90, 7)
-  setText(form, 'kb_leistung_titel', descLines[0])
+  // Description komplett auf z1..z6 verteilen — die ehemalige Titel-Zeile
+  // (kb_leistung_titel) wurde aus der Vorlage entfernt, also fängt der
+  // Text direkt in der ersten linierten Zeile an.
+  const descLines = wrapLines(input.report.description ?? '', 90, 6)
   for (let i = 1; i <= 6; i++) {
-    setText(form, `kb_leistung_z${i}`, descLines[i] ?? '')
+    setText(form, `kb_leistung_z${i}`, descLines[i - 1] ?? '')
   }
 
   // ─── Material-Tabelle: pro eingesetztes Gerät 1 Zeile (Menge=1) ──────
@@ -230,10 +231,20 @@ export async function renderReportPdf(input: ReportPdfInput): Promise<Uint8Array
     }
   }
 
-  // ─── Bericht-Nr — Vorlage zeigt oben rechts "( 000402 )", erwartet also
-  // nur den Zähl-Suffix ohne "AB-" und ohne Jahr. Aus "AB-2026-0007" wird "0007".
+  // ─── Bericht-Nr — Vorlage zeigt oben rechts "( 000402 )", erwartet nur
+  // den Zähl-Suffix ohne "AB-" und ohne Jahr. Aus "AB-2026-0007" wird "0007".
+  // Das Feld ist klein (58×14pt) → explizite, größere Font-Size erzwingen,
+  // sonst rendert pdf-lib es winzig.
   const numericSuffix = (input.reportNumber ?? '').match(/(\d+)\s*$/)?.[1] ?? null
-  setText(form, 'kb_bericht_nr', numericSuffix)
+  if (numericSuffix) {
+    try {
+      const tf = form.getTextField('kb_bericht_nr')
+      tf.setText(numericSuffix)
+      tf.setFontSize(13)
+    } catch {
+      // Feld nicht vorhanden — alte Vorlage ohne Bericht-Nr-Feld
+    }
+  }
 
   // ─── Form flatten — fertige PDF, nicht mehr nachträglich editierbar.
   form.flatten()
