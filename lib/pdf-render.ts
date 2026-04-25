@@ -230,8 +230,10 @@ export async function renderReportPdf(input: ReportPdfInput): Promise<Uint8Array
     }
   }
 
-  // ─── Bericht-Nr (Sicherheits-Try, falls die Vorlage später ein Feld bekommt)
-  setText(form, 'kb_bericht_nr', input.reportNumber)
+  // ─── Bericht-Nr — Vorlage zeigt oben rechts "( 000402 )", erwartet also
+  // nur den Zähl-Suffix ohne "AB-" und ohne Jahr. Aus "AB-2026-0007" wird "0007".
+  const numericSuffix = (input.reportNumber ?? '').match(/(\d+)\s*$/)?.[1] ?? null
+  setText(form, 'kb_bericht_nr', numericSuffix)
 
   // ─── Form flatten — fertige PDF, nicht mehr nachträglich editierbar.
   form.flatten()
