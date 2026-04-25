@@ -21,6 +21,7 @@ export interface WizardData {
   workHours: string
   travelFrom: string
   travelTo: string
+  travelDistanceKm: number | null
   startTime: string
   endTime: string
   technicianSignature: string | null
@@ -43,8 +44,9 @@ export function Wizard({ profile }: WizardProps) {
     description: '',
     deviceIds: [],
     workHours: '',
-    travelFrom: 'Alling',
+    travelFrom: 'Alling, Parsbergstraße 16, 82239',
     travelTo: '',
+    travelDistanceKm: null,
     startTime: nowLocalISO16(),
     endTime: '',
     technicianSignature: null,
@@ -132,6 +134,7 @@ export function Wizard({ profile }: WizardProps) {
           work_hours: parseFloat(merged.workHours),
           travel_from: merged.travelFrom || null,
           travel_to: merged.travelTo || null,
+          travel_distance_km: merged.travelDistanceKm,
           start_time: merged.startTime ? new Date(merged.startTime).toISOString() : undefined,
           end_time: merged.endTime ? new Date(merged.endTime).toISOString() : null,
         })
@@ -205,6 +208,7 @@ export function Wizard({ profile }: WizardProps) {
         work_hours: parseFloat(merged.workHours),
         travel_from: merged.travelFrom,
         travel_to: merged.travelTo,
+        travel_distance_km: merged.travelDistanceKm,
         start_time: merged.startTime ? new Date(merged.startTime).toISOString() : new Date().toISOString(),
         end_time: merged.endTime ? new Date(merged.endTime).toISOString() : null,
       },

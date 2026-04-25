@@ -7,6 +7,7 @@ interface PdfTemplateProps {
     work_hours: number | null
     travel_from: string | null
     travel_to: string | null
+    travel_distance_km: number | null
     start_time: string
     end_time: string | null
   }
@@ -27,6 +28,10 @@ export function PdfTemplate({
   const endStr = report.end_time
     ? fmt(report.end_time, { hour: '2-digit', minute: '2-digit' })
     : '—'
+
+  const distanceStr = report.travel_distance_km != null
+    ? `${new Intl.NumberFormat('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(report.travel_distance_km)} km`
+    : null
 
   return (
     <div
@@ -78,6 +83,9 @@ export function PdfTemplate({
               {report.work_hours}h
               {report.travel_from && report.travel_to && ` | ${report.travel_from} → ${report.travel_to}`}
             </div>
+            {distanceStr && (
+              <div style={{ color: '#475569', fontSize: '11px' }}>Distanz: {distanceStr}</div>
+            )}
             <div style={{ color: '#475569', fontSize: '11px' }}>{startStr} – {endStr} Uhr</div>
           </div>
         </div>
