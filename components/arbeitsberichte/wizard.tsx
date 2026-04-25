@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
@@ -63,6 +63,23 @@ export function Wizard({ profile, initialDraft }: WizardProps) {
     setData(prev => ({ ...prev, ...patch }))
   }
 
+  // Heartbeat — setzt updated_at auf der Draft-Row alle 5 Minuten zurück,
+  // damit Cleanup (15 Min Inaktivität) den Bericht nicht mitten im Ausfüllen
+  // löscht. Nur aktiv wenn ein reportId existiert (also nach Step 1).
+  useEffect(() => {
+    if (!data.reportId) return
+    const id = setInterval(() => {
+      // .update mit explizitem updated_at — der BEFORE-UPDATE-Trigger schreibt
+      // dann ohnehin now(), aber wir brauchen ein nicht-leeres update-Objekt.
+      void supabase
+        .from('work_reports')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', data.reportId)
+        .then(() => {})
+    }, 5 * 60 * 1000)
+    return () => clearInterval(id)
+  }, [data.reportId, supabase])
+
   async function saveStep1(patch: Partial<WizardData>) {
     const merged = { ...data, ...patch }
     updateData(patch)
@@ -123,6 +140,13 @@ export function Wizard({ profile, initialDraft }: WizardProps) {
             }))
           )
       }
+      // Touch der Parent-Row, damit der updated_at-Trigger feuert. Ohne das
+      // würde Step 3 (nur Geräte-FK-Tabelle berührt) den Inaktivitäts-Timer
+      // nicht zurücksetzen — Draft könnte mid-Wizard ablaufen.
+      await supabase
+        .from('work_reports')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', merged.reportId)
     }
     setStep(4)
   }

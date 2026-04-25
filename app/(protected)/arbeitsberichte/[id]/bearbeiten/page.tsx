@@ -21,8 +21,16 @@ export default async function EntwurfBearbeitenPage({ params }: PageProps) {
   const role = profile?.role as UserRole
   if (role === 'viewer') redirect(`/arbeitsberichte/${id}`)
 
-  // Stale Drafts opportunistisch wegputzen (15-Min-Regel).
+  // Stale Drafts opportunistisch wegputzen (15-Min-Inaktivitäts-Regel).
   await supabase.rpc('cleanup_old_work_report_drafts')
+
+  // Touch der eigenen Row direkt beim Öffnen, damit das Bearbeiten-Aufrufen
+  // den Inaktivitäts-Timer sofort zurücksetzt. (Kommt vor dem SELECT.)
+  await supabase
+    .from('work_reports')
+    .update({ updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('status', 'entwurf')
 
   const { data: report } = await supabase
     .from('work_reports')

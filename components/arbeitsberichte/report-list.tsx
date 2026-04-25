@@ -17,9 +17,10 @@ interface ReportListProps {
 
 const DRAFT_TTL_MS = 15 * 60 * 1000
 
-/** Verbleibende Minuten bis zum Auto-Delete eines Entwurfs. < 0 wenn abgelaufen. */
-function draftMinutesLeft(createdAt: string): number {
-  const expires = new Date(createdAt).getTime() + DRAFT_TTL_MS
+/** Verbleibende Minuten bis zum Auto-Delete eines Entwurfs (basiert auf
+ *  Inaktivität — der Timer zählt ab der letzten Bearbeitung, nicht ab Anlage). */
+function draftMinutesLeft(lastTouched: string): number {
+  const expires = new Date(lastTouched).getTime() + DRAFT_TTL_MS
   return Math.max(0, Math.round((expires - Date.now()) / 60000))
 }
 
@@ -55,7 +56,9 @@ export function ReportList({ reports, canCreate, canEditDrafts }: ReportListProp
         const href = isDraft && canEditDrafts
           ? `/arbeitsberichte/${report.id}/bearbeiten`
           : `/arbeitsberichte/${report.id}`
-        const minutesLeft = isDraft ? draftMinutesLeft(report.created_at) : null
+        const minutesLeft = isDraft
+          ? draftMinutesLeft(report.updated_at ?? report.created_at)
+          : null
 
         return (
           <Link
