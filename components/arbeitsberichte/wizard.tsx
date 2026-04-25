@@ -44,7 +44,7 @@ export function Wizard({ profile }: WizardProps) {
     description: '',
     deviceIds: [],
     workHours: '',
-    travelFrom: 'Alling, Parsbergstraße 16, 82239',
+    travelFrom: 'Parsbergstraße 16, 82239 Alling',
     travelTo: '',
     travelDistanceKm: null,
     startTime: nowLocalISO16(),

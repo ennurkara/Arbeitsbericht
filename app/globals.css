@@ -112,59 +112,37 @@
     letter-spacing: -0.003em;
   }
 
-  /* iOS Safari reserviert für die native datetime-local UI mehr Platz als der
-     Container bietet — der Wert ragt rechts aus dem Input. `appearance: none`
-     + flex-align stellt den Wert links dar und respektiert die Container-Breite. */
+  /* Generic sizing for date/time inputs. Auf Desktop bewusst kein
+     `appearance: none` — sonst zerschiesst Chrome das Default-Layout und
+     der Kalender-Picker rutscht aus seiner rechten Standardposition raus. */
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"] {
+    min-height: 36px;
+    min-width: 0;
+    max-width: 100%;
+  }
+}
+
+/* iOS Safari (und nur dort) reserviert fuer die native datetime-local UI mehr
+   Platz als der Container bietet — der Wert ragt rechts aus dem Input.
+   `appearance: none` + flex stellt den Wert links dar und respektiert die
+   Container-Breite. Wir scope'n das per @supports auf iOS, weil Chrome
+   Desktop dadurch sonst seinen rechts-pinned Picker verliert. */
+@supports (-webkit-touch-callout: none) {
   input[type="date"],
   input[type="time"],
   input[type="datetime-local"] {
     -webkit-appearance: none;
     appearance: none;
-    /* display:flex + justify-content:space-between is the only reliable way
-       to pin the calendar picker icon to the right in Chrome desktop. Chrome
-       silently ignores margin overrides on the picker-indicator pseudo, so
-       we let flex layout itself handle the spacing instead. */
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    min-height: 36px;
-    min-width: 0;
-    max-width: 100%;
   }
   input[type="date"]::-webkit-date-and-time-value,
   input[type="time"]::-webkit-date-and-time-value,
   input[type="datetime-local"]::-webkit-date-and-time-value {
     text-align: left;
   }
-
-}
-
-/* Chrome/Edge desktop: calendar picker icon stayed mid-line because the value
-   pseudo (::-webkit-date-and-time-value) is computed with the input's full
-   width — so margin-left:auto on the picker had nothing to push against.
-   Force the value to shrink (flex:0) so it only takes its content width and
-   the picker auto-margin actually moves the icon to the right edge.
-   Rules pulled OUT of @layer base because layer-cascading was suppressing
-   them in production builds. */
-
-input[type="date"]::-webkit-date-and-time-value,
-input[type="time"]::-webkit-date-and-time-value,
-input[type="datetime-local"]::-webkit-date-and-time-value {
-  flex: 0 0 auto;
-  text-align: left;
-}
-
-input[type="date"]::-webkit-calendar-picker-indicator,
-input[type="time"]::-webkit-calendar-picker-indicator,
-input[type="datetime-local"]::-webkit-calendar-picker-indicator {
-  margin-left: auto !important;
-  cursor: pointer;
-  opacity: 0.55;
-}
-input[type="date"]:hover::-webkit-calendar-picker-indicator,
-input[type="time"]:hover::-webkit-calendar-picker-indicator,
-input[type="datetime-local"]:hover::-webkit-calendar-picker-indicator {
-  opacity: 0.85;
 }
 
 /* ─────────── Kassen Buch utility layer ─────────── */
