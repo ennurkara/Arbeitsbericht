@@ -57,11 +57,18 @@ export default async function EntwurfBearbeitenPage({ params }: PageProps) {
   const deviceIds = ((report.devices ?? []) as Array<{ device_id: string }>)
     .map(d => d.device_id)
 
+  // Default-Auswahl: alle bisher zugeordneten Geräte als 'leihe' markieren.
+  // Beim Resume gibt's noch keine UI um die ursprüngliche Wahl wieder zu sehen
+  // (die Wizard-Logik schreibt erst beim Finish), das ist akzeptabel.
+  const deviceAssignments: Record<string, { kind: 'leihe' | 'verkauf' | 'austausch'; swapInDeviceId: string | null }> =
+    Object.fromEntries(deviceIds.map(id => [id, { kind: 'leihe', swapInDeviceId: null }]))
+
   const initialDraft = {
     reportId: report.id,
     customerId: report.customer_id ?? '',
     description: report.description ?? '',
     deviceIds,
+    deviceAssignments,
     workHours: report.work_hours != null ? String(report.work_hours) : '',
     travelFrom: report.travel_from ?? 'Parsbergstraße 16, 82239 Alling',
     travelTo: report.travel_to ?? '',

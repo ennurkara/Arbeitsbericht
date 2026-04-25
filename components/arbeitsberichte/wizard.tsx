@@ -12,11 +12,21 @@ import { StepGeraete } from './step-geraete'
 import { StepAufwand } from './step-aufwand'
 import { StepUnterschriften } from './step-unterschriften'
 
+export type AssignmentKind = 'leihe' | 'verkauf' | 'austausch'
+
+export interface DeviceAssignmentChoice {
+  kind: AssignmentKind
+  /** Bei 'austausch': Geräte-ID, das vom Kunden zurückkommt (geht in Reparatur). */
+  swapInDeviceId: string | null
+}
+
 export interface WizardData {
   reportId: string | null
   customerId: string
   description: string
   deviceIds: string[]
+  /** Pro selektiertem Gerät: Leihe (Default), Verkauf oder Austausch. */
+  deviceAssignments: Record<string, DeviceAssignmentChoice>
   workHours: string
   travelFrom: string
   travelTo: string
@@ -49,6 +59,7 @@ export function Wizard({ profile, initialDraft }: WizardProps) {
     customerId: initialDraft?.customerId ?? '',
     description: initialDraft?.description ?? '',
     deviceIds: initialDraft?.deviceIds ?? [],
+    deviceAssignments: initialDraft?.deviceAssignments ?? {},
     workHours: initialDraft?.workHours ?? '',
     travelFrom: initialDraft?.travelFrom ?? 'Parsbergstraße 16, 82239 Alling',
     travelTo: initialDraft?.travelTo ?? '',
@@ -199,12 +210,25 @@ export function Wizard({ profile, initialDraft }: WizardProps) {
       .eq('id', merged.reportId)
       .single()
 
-    if (merged.deviceIds.length > 0) {
-      await supabase
-        .from('devices')
-        .update({ status: 'im_einsatz' })
-        .in('id', merged.deviceIds)
-    }
+    // Pro Gerät die assign_device-RPC mit der gewählten Aktion (Leihe / Verkauf
+     // / Austausch) aufrufen. Setzt atomar Status + current_customer_id +
+     // schreibt eine device_assignments-Historienzeile (verlinkt mit dem AB).
+     for (const deviceId of merged.deviceIds) {
+       const choice = merged.deviceAssignments[deviceId] ?? { kind: 'leihe' as const, swapInDeviceId: null }
+       const { error: assignErr } = await supabase.rpc('assign_device', {
+         p_device_id: deviceId,
+         p_customer_id: merged.customerId,
+         p_kind: choice.kind,
+         p_swap_in_device_id: choice.swapInDeviceId,
+         p_work_report_id: merged.reportId,
+         p_notes: null,
+       })
+       if (assignErr) {
+         toast.error('Geräte-Zuordnung fehlgeschlagen', {
+           description: assignErr.message,
+         })
+       }
+     }
 
     setTimeout(async () => {
       let pdfBlob: Blob | null = null

@@ -4,12 +4,11 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 import { Search, X, Camera, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn, deviceDisplayName } from '@/lib/utils'
 import type { Device } from '@/lib/types'
-import type { WizardData } from './wizard'
+import type { WizardData, AssignmentKind, DeviceAssignmentChoice } from './wizard'
 
 interface StepGeraeteProps {
   data: WizardData
@@ -20,6 +19,7 @@ const DEVICE_SELECT = `
   id,
   serial_number,
   status,
+  current_customer_id,
   model:models(
     modellname,
     variante,
@@ -28,7 +28,6 @@ const DEVICE_SELECT = `
   )
 `
 
-/** Liest eine File als base64 (ohne den `data:image/...;base64,`-Prefix). */
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -43,20 +42,31 @@ function fileToBase64(file: File): Promise<string> {
   })
 }
 
-/** Normalisiert Seriennummern für Matching: lowercase, ohne Whitespace + Sonderzeichen. */
 function normalizeSerial(s: string): string {
   return s.toLowerCase().replace(/[\s\-_/.:]/g, '')
 }
 
+const KIND_LABELS: Record<AssignmentKind, string> = {
+  leihe: 'Leihe',
+  verkauf: 'Verkauf',
+  austausch: 'Austausch',
+}
+
 export function StepGeraete({ data, onNext }: StepGeraeteProps) {
   const supabase = createClient()
-  const [devices, setDevices] = useState<Device[]>([])
+  const [stockDevices, setStockDevices] = useState<Device[]>([])
+  /** Aktuell beim Wizard-Kunden verliehene Geräte — Swap-In-Kandidaten. */
+  const [customerDevices, setCustomerDevices] = useState<Device[]>([])
   const [search, setSearch] = useState('')
   const [selectedIds, setSelectedIds] = useState<string[]>(data.deviceIds)
+  const [assignments, setAssignments] = useState<Record<string, DeviceAssignmentChoice>>(
+    data.deviceAssignments,
+  )
   const [isLoading, setIsLoading] = useState(false)
   const [isScanning, setIsScanning] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Lager-Geräte: Kandidaten für die Selektion
   useEffect(() => {
     supabase
       .from('devices')
@@ -68,11 +78,27 @@ export function StepGeraete({ data, onNext }: StepGeraeteProps) {
         list.sort((a, b) =>
           deviceDisplayName(a.model).localeCompare(deviceDisplayName(b.model))
         )
-        setDevices(list)
+        setStockDevices(list)
       })
   }, [])
 
-  const filtered = devices.filter(d => {
+  // Beim aktuellen Kunden verliehene Geräte → Austausch-Rückläufer-Liste
+  useEffect(() => {
+    if (!data.customerId) {
+      setCustomerDevices([])
+      return
+    }
+    supabase
+      .from('devices')
+      .select(DEVICE_SELECT)
+      .eq('current_customer_id', data.customerId)
+      .in('status', ['verliehen', 'im_einsatz']) // im_einsatz = Legacy
+      .then(({ data: rows }) => {
+        setCustomerDevices(((rows ?? []) as unknown as Device[]))
+      })
+  }, [data.customerId])
+
+  const filtered = stockDevices.filter(d => {
     const needle = search.toLowerCase()
     return (
       deviceDisplayName(d.model).toLowerCase().includes(needle) ||
@@ -81,16 +107,55 @@ export function StepGeraete({ data, onNext }: StepGeraeteProps) {
   })
 
   function toggleDevice(id: string) {
-    setSelectedIds(prev =>
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-    )
+    setSelectedIds(prev => {
+      if (prev.includes(id)) {
+        // Auswahl entfernen → Assignment-Choice säubern
+        setAssignments(a => {
+          const next = { ...a }
+          delete next[id]
+          return next
+        })
+        return prev.filter(x => x !== id)
+      }
+      // Beim Hinzufügen: Default = Leihe
+      setAssignments(a => ({ ...a, [id]: { kind: 'leihe', swapInDeviceId: null } }))
+      return [...prev, id]
+    })
   }
 
-  const selectedDevices = devices.filter(d => selectedIds.includes(d.id))
+  function setKind(deviceId: string, kind: AssignmentKind) {
+    setAssignments(a => ({
+      ...a,
+      [deviceId]: {
+        kind,
+        // Beim Wechsel weg von Austausch: swap-in zurücksetzen
+        swapInDeviceId: kind === 'austausch' ? a[deviceId]?.swapInDeviceId ?? null : null,
+      },
+    }))
+  }
+
+  function setSwapIn(deviceId: string, swapInDeviceId: string | null) {
+    setAssignments(a => ({
+      ...a,
+      [deviceId]: { kind: a[deviceId]?.kind ?? 'austausch', swapInDeviceId },
+    }))
+  }
+
+  const selectedDevices = stockDevices.filter(d => selectedIds.includes(d.id))
 
   async function handleNext() {
+    // Validierung: Austausch braucht swap-in
+    for (const id of selectedIds) {
+      const choice = assignments[id]
+      if (choice?.kind === 'austausch' && !choice.swapInDeviceId) {
+        toast.error('Austausch unvollständig', {
+          description: 'Bitte das zurückkommende Gerät wählen.',
+        })
+        return
+      }
+    }
     setIsLoading(true)
-    await onNext({ deviceIds: selectedIds })
+    await onNext({ deviceIds: selectedIds, deviceAssignments: assignments })
     setIsLoading(false)
   }
 
@@ -104,9 +169,7 @@ export function StepGeraete({ data, onNext }: StepGeraeteProps) {
         body: JSON.stringify({ image: base64 }),
       })
       const json = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        throw new Error(json.error ?? `HTTP ${res.status}`)
-      }
+      if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`)
       const serials: string[] = Array.isArray(json.serials) ? json.serials : []
       if (serials.length === 0) {
         toast.error('Keine Seriennummer erkannt', {
@@ -114,29 +177,30 @@ export function StepGeraete({ data, onNext }: StepGeraeteProps) {
         })
         return
       }
-
-      // Match gegen die geladene Lager-Liste (normalisiert).
       const normSerials = serials.map(normalizeSerial)
-      const matches = devices.filter(d => {
+      const matches = stockDevices.filter(d => {
         if (!d.serial_number) return false
         const dn = normalizeSerial(d.serial_number)
         return normSerials.some(s => s === dn || s.includes(dn) || dn.includes(s))
       })
-
       if (matches.length === 0) {
         toast.error('Kein Gerät im Lager gefunden', {
           description: `Erkannt: ${serials.join(', ')}`,
         })
         return
       }
-
-      // Auto-select alle Treffer (typischerweise einer)
       setSelectedIds(prev => {
         const set = new Set(prev)
         for (const m of matches) set.add(m.id)
         return Array.from(set)
       })
-
+      setAssignments(a => {
+        const next = { ...a }
+        for (const m of matches) {
+          if (!next[m.id]) next[m.id] = { kind: 'leihe', swapInDeviceId: null }
+        }
+        return next
+      })
       const names = matches.map(m => deviceDisplayName(m.model)).join(', ')
       toast.success(
         matches.length === 1
@@ -148,7 +212,6 @@ export function StepGeraete({ data, onNext }: StepGeraeteProps) {
       toast.error('Scan fehlgeschlagen', { description: msg })
     } finally {
       setIsScanning(false)
-      // Input zurücksetzen, damit dasselbe File bei Bedarf nochmal getriggert werden kann
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
@@ -156,28 +219,93 @@ export function StepGeraete({ data, onNext }: StepGeraeteProps) {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-[var(--ink)]">Installierte Geräte</h2>
-        <p className="text-[12.5px] text-[var(--ink-3)] mt-1">Nur Geräte mit Status „Lager" werden angezeigt.</p>
+        <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-[var(--ink)]">Eingesetzte Geräte</h2>
+        <p className="text-[12.5px] text-[var(--ink-3)] mt-1">
+          Nur Geräte mit Status „Lager" sind wählbar. Pro Gerät kannst du Leihe, Verkauf oder Austausch wählen.
+        </p>
       </div>
 
+      {/* Auswahl mit Aktions-Picker */}
       {selectedDevices.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {selectedDevices.map(d => (
-            <Badge key={d.id} variant="verkauft" className="flex items-center gap-1.5 py-1 pr-1">
-              <span>{deviceDisplayName(d.model)}</span>
-              {d.serial_number && <span className="text-[var(--ink-4)] text-[10.5px]">· {d.serial_number}</span>}
-              <button
-                onClick={() => toggleDevice(d.id)}
-                className="ml-0.5 rounded-full p-0.5 hover:bg-white/40 transition-colors"
-                aria-label="Entfernen"
+        <div className="space-y-2">
+          {selectedDevices.map(d => {
+            const choice = assignments[d.id] ?? { kind: 'leihe' as const, swapInDeviceId: null }
+            return (
+              <div
+                key={d.id}
+                className="rounded-kb border border-[var(--rule)] bg-white p-3 space-y-2"
               >
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          ))}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[13px] font-medium text-[var(--ink)] truncate">
+                      {deviceDisplayName(d.model)}
+                    </div>
+                    {d.serial_number && (
+                      <div className="text-[11.5px] text-[var(--ink-4)] kb-mono">SN {d.serial_number}</div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => toggleDevice(d.id)}
+                    className="rounded-full p-1 hover:bg-[var(--paper-2)] transition-colors"
+                    aria-label="Entfernen"
+                  >
+                    <X className="h-3.5 w-3.5 text-[var(--ink-3)]" />
+                  </button>
+                </div>
+
+                {/* Kind-Picker als Segment-Control */}
+                <div className="flex gap-1 rounded-md bg-[var(--paper-2)] p-0.5">
+                  {(['leihe', 'verkauf', 'austausch'] as AssignmentKind[]).map(k => (
+                    <button
+                      key={k}
+                      type="button"
+                      onClick={() => setKind(d.id, k)}
+                      className={cn(
+                        'flex-1 rounded-[5px] px-2 py-1 text-[12px] font-medium transition-colors',
+                        choice.kind === k
+                          ? 'bg-white text-[var(--ink)] shadow-xs'
+                          : 'text-[var(--ink-3)] hover:text-[var(--ink-2)]'
+                      )}
+                    >
+                      {KIND_LABELS[k]}
+                    </button>
+                  ))}
+                </div>
+
+                {choice.kind === 'austausch' && (
+                  <div className="space-y-1.5 pt-1">
+                    <label className="text-[11.5px] font-medium text-[var(--ink-3)]">
+                      Welches Gerät kommt zurück (geht in Reparatur)?
+                    </label>
+                    {customerDevices.length === 0 ? (
+                      <div className="text-[12px] text-[var(--amber)]">
+                        Beim Kunden ist aktuell kein verliehenes Gerät registriert.
+                      </div>
+                    ) : (
+                      <select
+                        value={choice.swapInDeviceId ?? ''}
+                        onChange={e => setSwapIn(d.id, e.target.value || null)}
+                        className="w-full rounded-md border border-[var(--rule)] bg-white px-2 py-1.5 text-[13px]"
+                      >
+                        <option value="">— wählen —</option>
+                        {customerDevices.map(cd => (
+                          <option key={cd.id} value={cd.id}>
+                            {deviceDisplayName(cd.model)}
+                            {cd.serial_number ? ` · SN ${cd.serial_number}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
 
+      {/* Such-/Scan-Leiste */}
       <div className="flex gap-2">
         <div className="relative flex-1 min-w-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--ink-4)]" />
