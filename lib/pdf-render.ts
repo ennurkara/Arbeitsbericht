@@ -237,18 +237,25 @@ export async function renderReportPdf(input: ReportPdfInput): Promise<Uint8Array
   form.flatten()
 
   // ─── Unterschriften ZULETZT als PNG drüberzeichnen
+  // Das AcroForm-Feld ist mit 16pt Höhe schmal — wir vergrößern den Render-
+  // Bereich auf SIGNATURE_BOX_HEIGHT pt nach oben, sodass die handschrift-
+  // liche Signatur deutlich lesbar ist. Die Linie unter dem Feld bleibt
+  // sichtbar (Bild sitzt direkt darüber).
+  const SIGNATURE_BOX_HEIGHT = 40
   async function overlaySignature(rectKey: string, dataUrl: string | null) {
     const rect = sigRects[rectKey]
     if (!rect || !dataUrl) return
     const png = await embedSignaturePng(pdfDoc, dataUrl)
     if (!png) return
-    // 4pt Padding, damit die Linie unter dem Bild sichtbar bleibt.
-    const box = { w: rect.width - 8, h: rect.height - 4 }
+    const box = { w: rect.width - 8, h: SIGNATURE_BOX_HEIGHT }
     const ratio = png.width / png.height
     const fitted = fitImage(box, ratio)
     page.drawImage(png, {
+      // Horizontal mittig in der Spalte
       x: rect.x + (rect.width - fitted.w) / 2,
-      y: rect.y + (rect.height - fitted.h) / 2,
+      // Vertikal: Bild sitzt MIT seiner Unterkante auf der Feld-Unterkante
+      // (= direkt auf der Unterschriftslinie), wächst nach oben.
+      y: rect.y + 1,
       width: fitted.w,
       height: fitted.h,
     })
