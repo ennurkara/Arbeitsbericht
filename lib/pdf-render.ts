@@ -208,18 +208,40 @@ export async function renderReportPdf(input: ReportPdfInput): Promise<Uint8Array
       ? km ? `${input.report.travel_to}  (${km} km)` : input.report.travel_to
       : null)
 
-  // ─── Unterschriften ──────────────────────────────────────────────────
-  // Ort/Datum als Text, KB- + Kunden-Signaturen als PNG-Overlay.
+  // ─── Unterschriften (Vorbereitung) ────────────────────────────────────
+  // Ort/Datum als Text, KB- + Kunden-Signaturen folgen als PNG-Overlay
+  // NACH dem flatten() — sonst übermalt flatten unsere drawImage-Aufrufe.
   setText(form, 'kb_ort_datum', `Alling, ${fmtDate(input.report.start_time)}`)
 
-  // Signatur-Feld-Geometrie aus dem Template lesen, damit der Overlay
-  // exakt auf dem Feld sitzt (auch wenn das Layout später angepasst wird).
-  async function overlaySignature(fieldName: string, dataUrl: string | null) {
-    if (!dataUrl) return
+  // Rechtecke der Unterschrift-Felder VOR flatten cachen (danach sind die
+  // Widgets weg).
+  type Rect = { x: number; y: number; width: number; height: number }
+  const sigRects: Record<string, Rect | null> = {
+    kb_unterschrift_kb: null,
+    kb_unterschrift_kunde: null,
+  }
+  for (const name of Object.keys(sigRects)) {
+    try {
+      const widget = form.getTextField(name).acroField.getWidgets()[0]
+      const r = widget.getRectangle()
+      sigRects[name] = { x: r.x, y: r.y, width: r.width, height: r.height }
+    } catch {
+      // Feld fehlt — wird im Overlay einfach übersprungen
+    }
+  }
+
+  // ─── Bericht-Nr (Sicherheits-Try, falls die Vorlage später ein Feld bekommt)
+  setText(form, 'kb_bericht_nr', input.reportNumber)
+
+  // ─── Form flatten — fertige PDF, nicht mehr nachträglich editierbar.
+  form.flatten()
+
+  // ─── Unterschriften ZULETZT als PNG drüberzeichnen
+  async function overlaySignature(rectKey: string, dataUrl: string | null) {
+    const rect = sigRects[rectKey]
+    if (!rect || !dataUrl) return
     const png = await embedSignaturePng(pdfDoc, dataUrl)
     if (!png) return
-    const widget = form.getTextField(fieldName).acroField.getWidgets()[0]
-    const rect = widget.getRectangle()
     // 4pt Padding, damit die Linie unter dem Bild sichtbar bleibt.
     const box = { w: rect.width - 8, h: rect.height - 4 }
     const ratio = png.width / png.height
@@ -233,15 +255,6 @@ export async function renderReportPdf(input: ReportPdfInput): Promise<Uint8Array
   }
   await overlaySignature('kb_unterschrift_kb', input.technicianSignature)
   await overlaySignature('kb_unterschrift_kunde', input.customerSignature)
-
-  // ─── Bericht-Nr — falls die Vorlage spaeter eines bekommt; aktuell ist
-  // sie ein Static-Text im Template. Lasst uns trotzdem versuchen falls
-  // ein Feld dafuer existiert. (Sicherheits-Try, kein Fehler wenn nicht da.)
-  setText(form, 'kb_bericht_nr', input.reportNumber)
-
-  // ─── Form flatten — fertige PDF, nicht mehr nachträglich editierbar.
-  // Macht aus AcroForm-Feldern statische Inhalte.
-  form.flatten()
 
   return await pdfDoc.save()
 }
