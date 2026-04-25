@@ -29,4 +29,4 @@ export function getMailTransporter(): nodemailer.Transporter {
   return cachedTransporter
 }
 
-export const MAIL_FROM = process.env.MAIL_FROM ?? 'Kassen Buch <info@kassen-buch.com>'
+export const MAIL_FROM = process.env.MAIL_FROM ?? 'Kassen Buch <arbeitsbericht@kassen-buch.com>'
