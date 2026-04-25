@@ -5,10 +5,15 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
-import { MapPin, Loader2 } from 'lucide-react'
+import { MapPin, Loader2, Route } from 'lucide-react'
 import { calculateWorkHours, formatHoursMinutes, nowLocalISO16 } from '@/lib/utils'
-import { detectCurrentAddress } from '@/lib/geolocation'
+import { detectCurrentAddress, calculateRouteDistance } from '@/lib/geolocation'
 import type { WizardData } from './wizard'
+
+const DISTANCE_FORMATTER = new Intl.NumberFormat('de-DE', {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+})
 
 interface StepAufwandProps {
   data: WizardData
@@ -21,6 +26,8 @@ export function StepAufwand({ data, onNext }: StepAufwandProps) {
   const [workHours, setWorkHours] = useState(data.workHours)
   const [travelFrom, setTravelFrom] = useState(data.travelFrom)
   const [travelTo, setTravelTo] = useState(data.travelTo)
+  const [distanceKm, setDistanceKm] = useState<number | null>(data.travelDistanceKm)
+  const [distanceState, setDistanceState] = useState<'idle' | 'loading' | 'error'>('idle')
   const [isLoading, setIsLoading] = useState(false)
   const [locatingField, setLocatingField] = useState<'from' | 'to' | null>(null)
 
@@ -49,13 +56,53 @@ export function StepAufwand({ data, onNext }: StepAufwandProps) {
     }
   }, [startTime, endTime])
 
+  // Distanz berechnen, sobald beide Felder ≥3 Zeichen — debounced 700ms gegen
+  // jede Tastatur-Eingabe. Cleanup-Flag verhindert verspätete Antworten,
+  // wenn der User in der Zwischenzeit weitergetippt hat.
+  useEffect(() => {
+    const from = travelFrom.trim()
+    const to = travelTo.trim()
+    if (from.length < 3 || to.length < 3) {
+      setDistanceKm(null)
+      setDistanceState('idle')
+      return
+    }
+
+    let cancelled = false
+    setDistanceState('loading')
+    const handle = setTimeout(async () => {
+      try {
+        const { distanceKm: km } = await calculateRouteDistance(from, to)
+        if (cancelled) return
+        setDistanceKm(km)
+        setDistanceState('idle')
+      } catch {
+        if (cancelled) return
+        setDistanceKm(null)
+        setDistanceState('error')
+      }
+    }, 700)
+
+    return () => {
+      cancelled = true
+      clearTimeout(handle)
+    }
+  }, [travelFrom, travelTo])
+
   async function handleNext() {
     if (!workHours || parseFloat(workHours) <= 0) {
       toast.error('Bitte Arbeitsaufwand in Stunden angeben')
       return
     }
     setIsLoading(true)
-    await onNext({ startTime, endTime, workHours, travelFrom, travelTo })
+    await onNext({
+      startTime,
+      endTime,
+      workHours,
+      travelFrom,
+      travelTo,
+      travelDistanceKm: distanceKm,
+    })
     setIsLoading(false)
   }
 
@@ -132,6 +179,23 @@ export function StepAufwand({ data, onNext }: StepAufwandProps) {
           </div>
         </div>
       </div>
+
+      {(distanceState !== 'idle' || distanceKm !== null) && (
+        <div className="flex items-center gap-2 text-[12.5px] text-[var(--ink-3)]">
+          <Route className="h-3.5 w-3.5" strokeWidth={1.75} />
+          {distanceState === 'loading' && <span>Distanz wird berechnet…</span>}
+          {distanceState === 'error' && (
+            <span className="text-[var(--ink-4)]">Distanz nicht ermittelbar</span>
+          )}
+          {distanceState === 'idle' && distanceKm !== null && (
+            <span>
+              Distanz: <span className="font-medium text-[var(--ink-2)]">
+                {DISTANCE_FORMATTER.format(distanceKm)} km
+              </span>
+            </span>
+          )}
+        </div>
+      )}
 
       <Button className="w-full" onClick={handleNext} disabled={isLoading || !workHours}>
         Weiter →
