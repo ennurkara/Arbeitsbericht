@@ -129,6 +129,22 @@
   input[type="datetime-local"]::-webkit-date-and-time-value {
     text-align: left;
   }
+
+  /* Chrome/Edge desktop: calendar picker icon was floating in the middle of the
+     input because appearance:none removes the default layout. Pin it to the
+     right edge so the icon sits where users expect it. */
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator,
+  input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    margin-left: auto;
+    cursor: pointer;
+    opacity: 0.55;
+  }
+  input[type="date"]:hover::-webkit-calendar-picker-indicator,
+  input[type="time"]:hover::-webkit-calendar-picker-indicator,
+  input[type="datetime-local"]:hover::-webkit-calendar-picker-indicator {
+    opacity: 0.85;
+  }
 }
 
 /* ─────────── Kassen Buch utility layer ─────────── */
