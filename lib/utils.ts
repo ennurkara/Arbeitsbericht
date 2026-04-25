@@ -53,3 +53,13 @@ export function nowLocalISO16(): string {
   const tz = d.getTimezoneOffset() * 60000
   return new Date(d.getTime() - tz).toISOString().slice(0, 16)
 }
+
+// ISO-Timestamp (UTC) → `YYYY-MM-DDTHH:mm` in Browser-Lokalzeit. Gegenstück
+// zu nowLocalISO16, wenn man einen DB-Wert wieder in einen datetime-local-
+// Input prefillen möchte. Liefert leeren String wenn Input null/undef ist.
+export function isoToLocalISO16(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  const tz = d.getTimezoneOffset() * 60000
+  return new Date(d.getTime() - tz).toISOString().slice(0, 16)
+}
