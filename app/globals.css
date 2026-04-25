@@ -120,6 +120,11 @@
   input[type="datetime-local"] {
     -webkit-appearance: none;
     appearance: none;
+    /* display:flex turns the shadow children into flex items so the picker
+       icon can be pushed to the right via margin-left:auto. Without this,
+       Chrome desktop renders the icon mid-line. */
+    display: flex;
+    align-items: center;
     min-height: 36px;
     min-width: 0;
     max-width: 100%;
