@@ -29,27 +29,34 @@ export interface WizardData {
 
 interface WizardProps {
   profile: Profile
+  /**
+   * Wenn gesetzt, lädt der Wizard einen existierenden Entwurf zur
+   * Fortsetzung, statt eine neue Reihe anzulegen. Alle Schritte werden
+   * vorbefüllt; saveStep1 erkennt das gesetzte reportId und macht UPDATE
+   * statt INSERT.
+   */
+  initialDraft?: Partial<WizardData> & { reportId: string }
 }
 
 const STEP_LABELS = ['Kundendaten', 'Tätigkeit', 'Geräte', 'Aufwand', 'Unterschriften']
 
-export function Wizard({ profile }: WizardProps) {
+export function Wizard({ profile, initialDraft }: WizardProps) {
   const router = useRouter()
   const supabase = createClient()
   const [step, setStep] = useState(1)
   const [data, setData] = useState<WizardData>({
-    reportId: null,
-    customerId: '',
-    description: '',
-    deviceIds: [],
-    workHours: '',
-    travelFrom: 'Parsbergstraße 16, 82239 Alling',
-    travelTo: '',
-    travelDistanceKm: null,
-    startTime: nowLocalISO16(),
-    endTime: '',
-    technicianSignature: null,
-    customerSignature: null,
+    reportId: initialDraft?.reportId ?? null,
+    customerId: initialDraft?.customerId ?? '',
+    description: initialDraft?.description ?? '',
+    deviceIds: initialDraft?.deviceIds ?? [],
+    workHours: initialDraft?.workHours ?? '',
+    travelFrom: initialDraft?.travelFrom ?? 'Parsbergstraße 16, 82239 Alling',
+    travelTo: initialDraft?.travelTo ?? '',
+    travelDistanceKm: initialDraft?.travelDistanceKm ?? null,
+    startTime: initialDraft?.startTime || nowLocalISO16(),
+    endTime: initialDraft?.endTime ?? '',
+    technicianSignature: initialDraft?.technicianSignature ?? null,
+    customerSignature: initialDraft?.customerSignature ?? null,
   })
 
   function updateData(patch: Partial<WizardData>) {

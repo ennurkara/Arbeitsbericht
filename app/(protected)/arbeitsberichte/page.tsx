@@ -15,12 +15,16 @@ export default async function ArbeitsberichtePage() {
     .from('profiles').select('role').eq('id', user.id).single()
   const role = profile?.role as UserRole
 
+  // Stale Drafts (>15 Min) opportunistisch löschen, bevor wir die Liste laden.
+  await supabase.rpc('cleanup_old_work_report_drafts')
+
   const { data: reports } = await supabase
     .from('work_reports')
     .select('*, customer:customers(name)')
     .order('created_at', { ascending: false })
 
   const canCreate = role === 'admin' || role === 'mitarbeiter'
+  const canEditDrafts = role === 'admin' || role === 'mitarbeiter'
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -41,7 +45,11 @@ export default async function ArbeitsberichtePage() {
           </Button>
         )}
       </div>
-      <ReportList reports={(reports ?? []) as WorkReport[]} canCreate={canCreate} />
+      <ReportList
+        reports={(reports ?? []) as WorkReport[]}
+        canCreate={canCreate}
+        canEditDrafts={canEditDrafts}
+      />
     </div>
   )
 }

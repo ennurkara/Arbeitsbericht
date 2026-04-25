@@ -50,6 +50,15 @@ export default async function BerichtDetailPage({ params }: PageProps) {
     role === 'admin' || role === 'viewer' || report.technician_id === user.id
   if (!canView) redirect('/arbeitsberichte')
 
+  // Entwürfe (eigene oder als Admin) öffnen direkt im Bearbeiten-Wizard.
+  // Viewer sehen den Entwurf weiterhin als read-only Detail-View.
+  if (
+    report.status === 'entwurf' &&
+    (role === 'admin' || report.technician_id === user.id)
+  ) {
+    redirect(`/arbeitsberichte/${id}/bearbeiten`)
+  }
+
   const devices = (report.devices ?? []).map((d: any) => d.device)
 
   let pdfUrl: string | null = null
