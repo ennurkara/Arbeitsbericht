@@ -52,18 +52,15 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Make image public
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh api -X PATCH "/user/packages/container/arbeitsbericht/visibility" -f visibility=public || true
-
   deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
+      # Sparse checkout — wir brauchen nur die compose file, nicht das ganze repo.
       - uses: actions/checkout@v4
+        with:
+          sparse-checkout: docker-compose.prod.yml
+          sparse-checkout-cone-mode: false
 
       - name: Copy compose file to VPS
         uses: appleboy/scp-action@v0.1.7

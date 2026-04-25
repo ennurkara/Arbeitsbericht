@@ -2,7 +2,9 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+# BuildKit cache mount: npm download cache survives between builds, so
+# repeated `npm ci` runs only re-link from the cached tarballs.
+RUN --mount=type=cache,target=/root/.npm npm ci
 
 FROM node:20-alpine AS builder
 WORKDIR /app
@@ -13,7 +15,10 @@ ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN mkdir -p public && npm run build
+# Cache mount for Next.js: SWC compilation, image optimization, and
+# webpack persistent cache live in .next/cache. Persisting it cuts
+# `next build` time roughly in half on incremental changes.
+RUN --mount=type=cache,target=/app/.next/cache mkdir -p public && npm run build
 
 FROM node:20-alpine AS runner
 WORKDIR /app
