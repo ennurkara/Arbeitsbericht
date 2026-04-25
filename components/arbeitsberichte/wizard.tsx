@@ -4,14 +4,13 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { deviceDisplayName, nowLocalISO16 } from '@/lib/utils'
+import { nowLocalISO16 } from '@/lib/utils'
 import type { Profile } from '@/lib/types'
 import { StepKunde } from './step-kunde'
 import { StepTaetigkeit } from './step-taetigkeit'
 import { StepGeraete } from './step-geraete'
 import { StepAufwand } from './step-aufwand'
 import { StepUnterschriften } from './step-unterschriften'
-import { PdfTemplate } from './pdf-template'
 
 export interface WizardData {
   reportId: string | null
@@ -52,9 +51,6 @@ export function Wizard({ profile }: WizardProps) {
     technicianSignature: null,
     customerSignature: null,
   })
-
-  const [showPdf, setShowPdf] = useState(false)
-  const [pdfPayload, setPdfPayload] = useState<any>(null)
 
   function updateData(patch: Partial<WizardData>) {
     setData(prev => ({ ...prev, ...patch }))
@@ -179,49 +175,27 @@ export function Wizard({ profile }: WizardProps) {
         .in('id', merged.deviceIds)
     }
 
-    const [{ data: customerRow }, { data: deviceRows }] = await Promise.all([
-      supabase.from('customers').select('*').eq('id', merged.customerId).single(),
-      merged.deviceIds.length > 0
-        ? supabase
-            .from('devices')
-            .select(`
-              id,
-              serial_number,
-              model:models(modellname, variante, manufacturer:manufacturers(name))
-            `)
-            .in('id', merged.deviceIds)
-        : Promise.resolve({ data: [] as Array<{ id: string; serial_number: string | null; model: any }> }),
-    ])
-
-    const pdfDevices = (deviceRows ?? []).map((d: any) => ({
-      id: d.id,
-      name: deviceDisplayName(d.model),
-      serial_number: d.serial_number,
-    }))
-
-    setPdfPayload({
-      customer: customerRow,
-      devices: pdfDevices,
-      reportNumber: reportRow?.report_number ?? null,
-      report: {
-        description: merged.description,
-        work_hours: parseFloat(merged.workHours),
-        travel_from: merged.travelFrom,
-        travel_to: merged.travelTo,
-        travel_distance_km: merged.travelDistanceKm,
-        start_time: merged.startTime ? new Date(merged.startTime).toISOString() : new Date().toISOString(),
-        end_time: merged.endTime ? new Date(merged.endTime).toISOString() : null,
-      },
-      technicianSignature: merged.technicianSignature!,
-      customerSignature: merged.customerSignature!,
-    })
-    setShowPdf(true)
-
     setTimeout(async () => {
       let pdfBlob: Blob | null = null
       try {
-        const { exportReportToPdf } = await import('./pdf-export')
-        pdfBlob = await exportReportToPdf(reportRow?.report_number ?? null)
+        const res = await fetch('/api/render-report-pdf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reportId: merged.reportId }),
+        })
+        if (!res.ok) {
+          const json = await res.json().catch(() => ({}))
+          throw new Error(json.error ?? `HTTP ${res.status}`)
+        }
+        pdfBlob = await res.blob()
+        // Lokal speichern für den Techniker
+        const a = document.createElement('a')
+        a.href = URL.createObjectURL(pdfBlob)
+        a.download = `${reportRow?.report_number ?? merged.reportId}.pdf`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(a.href)
         toast.success('PDF wurde heruntergeladen')
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)
@@ -332,18 +306,7 @@ export function Wizard({ profile }: WizardProps) {
         ) : null}
       </div>
 
-      {/* Hidden PDF template */}
-      {showPdf && pdfPayload && (
-        <PdfTemplate
-          reportNumber={pdfPayload.reportNumber}
-          customer={pdfPayload.customer}
-          technician={profile}
-          report={pdfPayload.report}
-          devices={pdfPayload.devices}
-          technicianSignature={pdfPayload.technicianSignature}
-          customerSignature={pdfPayload.customerSignature}
-        />
-      )}
+      {/* PDF wird server-seitig in /api/render-report-pdf erzeugt — kein hidden React-Template mehr nötig. */}
     </div>
   )
 }

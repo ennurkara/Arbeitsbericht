@@ -51,8 +51,6 @@ export default async function BerichtDetailPage({ params }: PageProps) {
   if (!canView) redirect('/arbeitsberichte')
 
   const devices = (report.devices ?? []).map((d: any) => d.device)
-  const customer = report.customer as any
-  const technician = report.technician as any
 
   let pdfUrl: string | null = null
   if (report.pdf_path) {
@@ -63,43 +61,11 @@ export default async function BerichtDetailPage({ params }: PageProps) {
   }
 
   // Re-Generation ist nur sinnvoll wenn Bericht abgeschlossen ist und beide
-  // Unterschriften vorliegen. Andernfalls würde die Vorlage leere Signatur-
-  // Bilder rendern.
+  // Unterschriften vorliegen. Andernfalls rendert die Vorlage leere Signatur-Boxen.
   const canRegenerate =
     report.status === 'abgeschlossen' &&
     !!report.technician_signature &&
     !!report.customer_signature
-
-  const pdfPayload = canRegenerate
-    ? {
-        reportNumber: report.report_number ?? null,
-        customer: {
-          name: customer?.name ?? '—',
-          address: customer?.address ?? null,
-          postal_code: customer?.postal_code ?? null,
-          city: customer?.city ?? null,
-          phone: customer?.phone ?? null,
-          email: customer?.email ?? null,
-        },
-        technician: { full_name: technician?.full_name ?? '—' },
-        report: {
-          description: report.description ?? null,
-          work_hours: report.work_hours ?? null,
-          travel_from: report.travel_from ?? null,
-          travel_to: report.travel_to ?? null,
-          travel_distance_km: (report as any).travel_distance_km ?? null,
-          start_time: report.start_time ?? new Date().toISOString(),
-          end_time: report.end_time ?? null,
-        },
-        devices: devices.map((d: any) => ({
-          id: d.id,
-          name: deviceDisplayName(d.model),
-          serial_number: d.serial_number,
-        })),
-        technicianSignature: report.technician_signature as string,
-        customerSignature: report.customer_signature as string,
-      }
-    : null
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -111,9 +77,13 @@ export default async function BerichtDetailPage({ params }: PageProps) {
           {report.report_number ?? 'Entwurf'}
         </h1>
         <ReportStatusBadge status={report.status as WorkReportStatus} />
-        {pdfPayload && (
+        {canRegenerate && (
           <div className="ml-auto">
-            <PdfActions reportId={report.id} pdfUrl={pdfUrl} payload={pdfPayload} />
+            <PdfActions
+              reportId={report.id}
+              reportNumber={report.report_number ?? null}
+              pdfUrl={pdfUrl}
+            />
           </div>
         )}
       </div>
