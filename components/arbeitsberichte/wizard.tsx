@@ -247,6 +247,30 @@ export function Wizard({ profile }: WizardProps) {
               toast.error('PDF-Pfad konnte nicht gespeichert werden', {
                 description: saveErr.message,
               })
+            } else {
+              // PDF ist hochgeladen, optional an den Kunden mailen wenn er
+              // eine E-Mail-Adresse hat. Fehler hier blockieren den Wizard
+              // nicht — der Bericht ist trotzdem fertig.
+              try {
+                const res = await fetch('/api/send-report-pdf', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ reportId: merged.reportId }),
+                })
+                const json = await res.json().catch(() => ({}))
+                if (res.ok) {
+                  toast.success(`PDF an Kunde gesendet (${json.sentTo ?? ''})`)
+                } else if (json.error === 'Kunde hat keine E-Mail-Adresse') {
+                  // Stiller Skip — kein Fehler, einfach nicht versenden.
+                } else {
+                  toast.error('PDF-Versand an Kunde fehlgeschlagen', {
+                    description: json.error ?? `HTTP ${res.status}`,
+                  })
+                }
+              } catch (e) {
+                const msg = e instanceof Error ? e.message : String(e)
+                toast.error('PDF-Versand an Kunde fehlgeschlagen', { description: msg })
+              }
             }
           }
         } catch (e) {
