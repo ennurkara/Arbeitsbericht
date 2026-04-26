@@ -48,8 +48,18 @@ function normalizeSerial(s: string): string {
 
 const KIND_LABELS: Record<AssignmentKind, string> = {
   leihe: 'Leihe',
-  verkauf: 'Verkauf',
+  verkauf: 'Installiert',
   austausch: 'Austausch',
+}
+
+const TSE_CATEGORY = 'TSE Swissbit'
+const KASSE_CATEGORY = 'Kassenhardware'
+
+function isTse(d: Pick<Device, 'model'>): boolean {
+  return d.model?.category?.name === TSE_CATEGORY
+}
+function isKasse(d: Pick<Device, 'model'>): boolean {
+  return d.model?.category?.name === KASSE_CATEGORY
 }
 
 export function StepGeraete({ data, onNext }: StepGeraeteProps) {
@@ -61,6 +71,9 @@ export function StepGeraete({ data, onNext }: StepGeraeteProps) {
   const [selectedIds, setSelectedIds] = useState<string[]>(data.deviceIds)
   const [assignments, setAssignments] = useState<Record<string, DeviceAssignmentChoice>>(
     data.deviceAssignments,
+  )
+  const [tseTargets, setTseTargets] = useState<Record<string, string | null>>(
+    data.tseInstallTargets ?? {},
   )
   const [isLoading, setIsLoading] = useState(false)
   const [isScanning, setIsScanning] = useState(false)
@@ -111,16 +124,27 @@ export function StepGeraete({ data, onNext }: StepGeraeteProps) {
   function toggleDevice(id: string) {
     setSelectedIds(prev => {
       if (prev.includes(id)) {
-        // Auswahl entfernen → Assignment-Choice säubern
+        // Auswahl entfernen → Assignment-Choice + TSE-Target säubern
         setAssignments(a => {
           const next = { ...a }
           delete next[id]
           return next
         })
+        setTseTargets(t => {
+          const next = { ...t }
+          delete next[id]
+          return next
+        })
         return prev.filter(x => x !== id)
       }
-      // Beim Hinzufügen: Default = Leihe
-      setAssignments(a => ({ ...a, [id]: { kind: 'leihe', swapInDeviceId: null } }))
+      // Beim Hinzufügen: TSE-Devices kriegen fest 'verkauf' (= installiert),
+      // andere Geräte bekommen 'leihe' als Default.
+      const dev = stockDevices.find(d => d.id === id)
+      const defaultKind: AssignmentKind = dev && isTse(dev) ? 'verkauf' : 'leihe'
+      setAssignments(a => ({ ...a, [id]: { kind: defaultKind, swapInDeviceId: null } }))
+      if (dev && isTse(dev)) {
+        setTseTargets(t => ({ ...t, [id]: null }))
+      }
       return [...prev, id]
     })
   }
@@ -145,6 +169,18 @@ export function StepGeraete({ data, onNext }: StepGeraeteProps) {
 
   const selectedDevices = stockDevices.filter(d => selectedIds.includes(d.id))
 
+  // Kassen-Kandidaten für TSE-Installation: alle Kassen beim Kunden +
+  // alle Kassen, die in diesem AB gerade selektiert sind (gleichzeitige
+  // Neuinstallation Kasse + TSE).
+  const kassenForTseInstall: Device[] = [
+    ...customerDevices.filter(isKasse),
+    ...selectedDevices.filter(isKasse),
+  ]
+
+  function setTseTarget(tseId: string, kasseId: string | null) {
+    setTseTargets(t => ({ ...t, [tseId]: kasseId }))
+  }
+
   async function handleNext() {
     // Validierung: Austausch braucht swap-in
     for (const id of selectedIds) {
@@ -156,8 +192,22 @@ export function StepGeraete({ data, onNext }: StepGeraeteProps) {
         return
       }
     }
+    // Validierung: TSE braucht Ziel-Kasse, sonst nur Status-Update ohne Kopplung.
+    // Hinweis als Warning, nicht Block — User soll trotzdem weitermachen können
+    // (TSE-Lager-Bewegung ohne Installation ist erlaubt).
+    const tsesWithoutTarget = selectedDevices.filter(d => isTse(d) && !tseTargets[d.id])
+    if (tsesWithoutTarget.length > 0) {
+      const ok = window.confirm(
+        `${tsesWithoutTarget.length} TSE ohne Ziel-Kasse. Trotzdem weiter? Die TSE wird beim Kunden geführt, aber nicht in eine Kasse eingebaut.`,
+      )
+      if (!ok) return
+    }
     setIsLoading(true)
-    await onNext({ deviceIds: selectedIds, deviceAssignments: assignments })
+    await onNext({
+      deviceIds: selectedIds,
+      deviceAssignments: assignments,
+      tseInstallTargets: tseTargets,
+    })
     setIsLoading(false)
   }
 
@@ -223,7 +273,7 @@ export function StepGeraete({ data, onNext }: StepGeraeteProps) {
       <div>
         <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-[var(--ink)]">Eingesetzte Geräte</h2>
         <p className="text-[12.5px] text-[var(--ink-3)] mt-1">
-          Nur Geräte mit Status „Lager" sind wählbar. Pro Gerät kannst du Leihe, Verkauf oder Austausch wählen.
+          Nur Geräte mit Status „Lager" sind wählbar. Kassen + Geräte: Leihe, Installiert oder Austausch. TSE-Module werden in eine Kasse beim Kunden installiert.
         </p>
       </div>
 
@@ -256,26 +306,54 @@ export function StepGeraete({ data, onNext }: StepGeraeteProps) {
                   </button>
                 </div>
 
-                {/* Kind-Picker als Segment-Control */}
-                <div className="flex gap-1 rounded-md bg-[var(--paper-2)] p-0.5">
-                  {(['leihe', 'verkauf', 'austausch'] as AssignmentKind[]).map(k => (
-                    <button
-                      key={k}
-                      type="button"
-                      onClick={() => setKind(d.id, k)}
-                      className={cn(
-                        'flex-1 rounded-[5px] px-2 py-1 text-[12px] font-medium transition-colors',
-                        choice.kind === k
-                          ? 'bg-white text-[var(--ink)] shadow-xs'
-                          : 'text-[var(--ink-3)] hover:text-[var(--ink-2)]'
-                      )}
-                    >
-                      {KIND_LABELS[k]}
-                    </button>
-                  ))}
-                </div>
+                {/* TSE → Kasse-Picker, kein Lifecycle-Picker.
+                     Andere Geräte → Leihe / Installiert / Austausch. */}
+                {isTse(d) ? (
+                  <div className="space-y-1.5">
+                    <label className="text-[11.5px] font-medium text-[var(--ink-3)]">
+                      In welche Kasse wird die TSE installiert?
+                    </label>
+                    {kassenForTseInstall.length === 0 ? (
+                      <div className="text-[12px] text-[var(--amber)]">
+                        Keine Kasse beim Kunden gefunden. TSE wird ohne Kopplung zugeordnet.
+                      </div>
+                    ) : (
+                      <select
+                        value={tseTargets[d.id] ?? ''}
+                        onChange={e => setTseTarget(d.id, e.target.value || null)}
+                        className="w-full rounded-md border border-[var(--rule)] bg-white px-2 py-1.5 text-[13px]"
+                      >
+                        <option value="">— Kasse wählen —</option>
+                        {kassenForTseInstall.map(k => (
+                          <option key={k.id} value={k.id}>
+                            {deviceDisplayName(k.model)}
+                            {k.serial_number ? ` · SN ${k.serial_number}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex gap-1 rounded-md bg-[var(--paper-2)] p-0.5">
+                    {(['leihe', 'verkauf', 'austausch'] as AssignmentKind[]).map(k => (
+                      <button
+                        key={k}
+                        type="button"
+                        onClick={() => setKind(d.id, k)}
+                        className={cn(
+                          'flex-1 rounded-[5px] px-2 py-1 text-[12px] font-medium transition-colors',
+                          choice.kind === k
+                            ? 'bg-white text-[var(--ink)] shadow-xs'
+                            : 'text-[var(--ink-3)] hover:text-[var(--ink-2)]'
+                        )}
+                      >
+                        {KIND_LABELS[k]}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
-                {choice.kind === 'austausch' && (
+                {!isTse(d) && choice.kind === 'austausch' && (
                   <div className="space-y-1.5 pt-1">
                     <label className="text-[11.5px] font-medium text-[var(--ink-3)]">
                       Welches Gerät kommt zurück (geht in Reparatur)?
