@@ -92,7 +92,9 @@ export function StepGeraete({ data, onNext }: StepGeraeteProps) {
       .from('devices')
       .select(DEVICE_SELECT)
       .eq('current_customer_id', data.customerId)
-      .in('status', ['verliehen', 'im_einsatz']) // im_einsatz = Legacy
+      // verkauft + verliehen + im_einsatz (Legacy) — alle drei können
+      // als Tausch-Rückläufer in Frage kommen.
+      .in('status', ['verliehen', 'im_einsatz', 'verkauft'])
       .then(({ data: rows }) => {
         setCustomerDevices(((rows ?? []) as unknown as Device[]))
       })
