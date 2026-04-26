@@ -23,8 +23,8 @@ export default async function ArbeitsberichtePage() {
     .select('*, customer:customers(name)')
     .order('created_at', { ascending: false })
 
-  const canCreate = role === 'admin' || role === 'mitarbeiter'
-  const canEditDrafts = role === 'admin' || role === 'mitarbeiter'
+  const canCreate = role === 'admin' || role === 'mitarbeiter' || role === 'techniker'
+  const canEditDrafts = role === 'admin' || role === 'mitarbeiter' || role === 'techniker'
 
   return (
     <div className="max-w-5xl mx-auto">

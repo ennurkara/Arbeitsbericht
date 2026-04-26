@@ -16,7 +16,7 @@ export default async function DashboardPage() {
   const { data: profile } = await supabase
     .from('profiles').select('*').eq('id', user.id).single()
   const role = profile?.role as UserRole
-  const canCreate = role === 'admin' || role === 'mitarbeiter'
+  const canCreate = role === 'admin' || role === 'mitarbeiter' || role === 'techniker'
 
   const [{ data: recentReports }, { count: draftCount }] = await Promise.all([
     supabase

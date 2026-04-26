@@ -40,7 +40,7 @@ export function Sidebar({ profile }: { profile: Profile }) {
     router.refresh()
   }
 
-  const canCreate = profile.role === 'admin' || profile.role === 'mitarbeiter'
+  const canCreate = profile.role === 'admin' || profile.role === 'mitarbeiter' || profile.role === 'techniker'
 
   return (
     <aside className="hidden md:flex w-[232px] flex-col flex-shrink-0 bg-white border-r border-[var(--rule)] h-screen sticky top-0">
