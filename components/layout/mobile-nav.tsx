@@ -25,7 +25,7 @@ export function MobileNav({ profile }: { profile: Profile }) {
     router.refresh()
   }
 
-  const canCreate = profile.role === 'admin' || profile.role === 'mitarbeiter'
+  const canCreate = profile.role === 'admin' || profile.role === 'mitarbeiter' || profile.role === 'techniker'
 
   const isBerichteActive = (href: string) => {
     if (href !== '/arbeitsberichte') return pathname.startsWith(href)

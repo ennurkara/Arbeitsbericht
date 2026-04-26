@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'mitarbeiter' | 'viewer'
+export type UserRole = 'admin' | 'mitarbeiter' | 'techniker' | 'viewer'
 export type WorkReportStatus = 'entwurf' | 'abgeschlossen'
 export type DeviceStatus =
   | 'lager'

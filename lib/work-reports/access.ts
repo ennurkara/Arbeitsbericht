@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 export interface AccessContext {
   user: { id: string }
-  role: 'admin' | 'mitarbeiter' | 'viewer' | null
+  role: 'admin' | 'mitarbeiter' | 'techniker' | 'viewer' | null
 }
 
 /** Holt den eingeloggten User + seine Rolle aus profiles. Returns null
