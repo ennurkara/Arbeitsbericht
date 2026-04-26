@@ -48,10 +48,47 @@ export async function POST(req: Request) {
 
   const customer = (report as any).customer ?? {}
   const technician = (report as any).technician ?? {}
-  const devices = ((report as any).devices ?? []).map((d: any) => ({
-    name: deviceDisplayName(d.device?.model),
-    serial_number: d.device?.serial_number ?? null,
-  }))
+
+  // Lifecycle-Assignments dieses AB laden — pro Gerät die Aktion (Leihe /
+  // Verkauf / Austausch). Bei austausch_raus über swap_pair_id den
+  // Rückläufer-Partner (austausch_rein) finden, dessen Geräte-Info wir
+  // in der Material-Tabelle als zweite Zeile rendern.
+  const { data: assignmentRows } = await supabase
+    .from('device_assignments')
+    .select(`
+      id, device_id, kind, swap_pair_id,
+      device:devices(id, serial_number, model:models(modellname, variante, manufacturer:manufacturers(name)))
+    `)
+    .eq('work_report_id', reportId)
+  const assignmentById = new Map<string, any>()
+  const assignmentByDeviceId = new Map<string, any>()
+  for (const a of (assignmentRows ?? []) as any[]) {
+    assignmentById.set(a.id, a)
+    // Nur die "aktive" Seite indexieren — austausch_rein ist der Rückläufer,
+    // den wir nicht als Hauptzeile, sondern als Pair des raus rendern.
+    if (a.kind !== 'austausch_rein') assignmentByDeviceId.set(a.device_id, a)
+  }
+
+  const devices = ((report as any).devices ?? []).map((d: any) => {
+    const deviceId = d.device?.id
+    const assignment = deviceId ? assignmentByDeviceId.get(deviceId) : null
+    let pair_name: string | null = null
+    let pair_serial: string | null = null
+    if (assignment?.kind === 'austausch_raus' && assignment.swap_pair_id) {
+      const pair = assignmentById.get(assignment.swap_pair_id)
+      if (pair?.device) {
+        pair_name = deviceDisplayName(pair.device.model)
+        pair_serial = pair.device.serial_number ?? null
+      }
+    }
+    return {
+      name: deviceDisplayName(d.device?.model),
+      serial_number: d.device?.serial_number ?? null,
+      kind: (assignment?.kind ?? null) as 'leihe' | 'verkauf' | 'austausch_raus' | null,
+      pair_name,
+      pair_serial,
+    }
+  })
 
   const input: ReportPdfInput = {
     reportNumber: report.report_number ?? null,
