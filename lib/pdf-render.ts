@@ -42,7 +42,7 @@ export interface ReportPdfInput {
 function kindLabel(kind: string | null | undefined): string | null {
   switch (kind) {
     case 'leihe':          return 'Leihe'
-    case 'verkauf':        return 'Verkauf'
+    case 'verkauf':        return 'Installation'
     case 'austausch_raus': return 'Austausch'
     default:               return null
   }

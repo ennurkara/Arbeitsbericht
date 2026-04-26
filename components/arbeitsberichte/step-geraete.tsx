@@ -48,7 +48,7 @@ function normalizeSerial(s: string): string {
 
 const KIND_LABELS: Record<AssignmentKind, string> = {
   leihe: 'Leihe',
-  verkauf: 'Installiert',
+  verkauf: 'Installation',
   austausch: 'Austausch',
 }
 
