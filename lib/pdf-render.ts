@@ -212,13 +212,15 @@ export async function renderReportPdf(input: ReportPdfInput): Promise<Uint8Array
       text: label ? `${d.name} — ${label}` : d.name,
       serial: d.serial_number ?? '',
     })
-    // Bei Austausch: Rückläufer als zweite Zeile
+    // Bei Austausch: Rückläufer als zweite Zeile.
+    // ASCII-Indent statt Unicode-Pfeil — Helvetica/WinAnsi kennt ↳ nicht und
+    // pdf-lib wirft sonst eine "cannot encode"-Exception.
     if (d.kind === 'austausch_raus' && (d.pair_name || d.pair_serial)) {
       entries.push({
         menge: '1',
         text: d.pair_name
-          ? `↳ Rückläufer zur Reparatur: ${d.pair_name}`
-          : '↳ Rückläufer zur Reparatur',
+          ? `Rückläufer zur Reparatur: ${d.pair_name}`
+          : 'Rückläufer zur Reparatur',
         serial: d.pair_serial ?? '',
       })
     }
