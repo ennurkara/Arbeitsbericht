@@ -25,8 +25,13 @@ export interface WizardData {
   customerId: string
   description: string
   deviceIds: string[]
-  /** Pro selektiertem Gerät: Leihe (Default), Verkauf oder Austausch. */
+  /** Pro selektiertem Gerät: Leihe (Default), Verkauf oder Austausch. TSE-Devices
+   *  bekommen automatisch 'verkauf' (= installiert) und werden über tseInstallTargets
+   *  zusätzlich an eine Kasse gekoppelt. */
   deviceAssignments: Record<string, DeviceAssignmentChoice>
+  /** Pro TSE-Device im AB: in welche Kasse wird sie installiert?
+   *  Schreibt beim Finish tse_details.installed_in_device. */
+  tseInstallTargets: Record<string, string | null>
   workHours: string
   travelFrom: string
   travelTo: string
@@ -60,6 +65,7 @@ export function Wizard({ profile, initialDraft }: WizardProps) {
     description: initialDraft?.description ?? '',
     deviceIds: initialDraft?.deviceIds ?? [],
     deviceAssignments: initialDraft?.deviceAssignments ?? {},
+    tseInstallTargets: initialDraft?.tseInstallTargets ?? {},
     workHours: initialDraft?.workHours ?? '',
     travelFrom: initialDraft?.travelFrom ?? 'Parsbergstraße 16, 82239 Alling',
     travelTo: initialDraft?.travelTo ?? '',
@@ -229,6 +235,31 @@ export function Wizard({ profile, initialDraft }: WizardProps) {
          })
        }
      }
+
+    // TSE-Module mit Ziel-Kasse koppeln: tse_details.installed_in_device setzen.
+    // Optional vorher: alte TSE in derselben Kasse als ausgemustert markieren —
+    // bewusst weggelassen, weil das den Wizard für den Standardfall (1 alte +
+    // 1 neue TSE in 1 Kasse) ungefragt invasiv macht; manueller Cleanup im
+    // Inventar bleibt klarer.
+    const tseTargets = merged.tseInstallTargets ?? {}
+    for (const [tseDeviceId, kasseDeviceId] of Object.entries(tseTargets)) {
+      if (!kasseDeviceId) continue
+      // UPDATE statt UPSERT: tse_details.kind ist NOT NULL und wird beim Anlegen
+      // im Warenwirtschaft-DeviceForm gesetzt. Wenn die Zeile fehlt, läuft der
+      // UPDATE leer durch — wir warnen, aber blockieren den Wizard nicht.
+      const { data: updated, error: tseErr } = await supabase
+        .from('tse_details')
+        .update({ installed_in_device: kasseDeviceId })
+        .eq('device_id', tseDeviceId)
+        .select('device_id')
+      if (tseErr) {
+        toast.error('TSE-Kopplung fehlgeschlagen', { description: tseErr.message })
+      } else if (!updated || updated.length === 0) {
+        toast.warning('TSE-Detailzeile fehlt', {
+          description: 'Bitte TSE im Inventar mit Art (USB/SD), BSI-Nummer und Ablauf anlegen, dann Bericht öffnen und erneut speichern.',
+        })
+      }
+    }
 
     setTimeout(async () => {
       let pdfBlob: Blob | null = null
