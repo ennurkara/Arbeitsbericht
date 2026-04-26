@@ -61,6 +61,33 @@ export default async function BerichtDetailPage({ params }: PageProps) {
 
   const devices = (report.devices ?? []).map((d: any) => d.device)
 
+  // Lifecycle-Assignments für diesen AB → Aktion + Tausch-Pair pro Gerät.
+  const { data: assignmentRows } = await supabase
+    .from('device_assignments')
+    .select(`
+      id, device_id, kind, swap_pair_id,
+      device:devices(id, serial_number, model:models(modellname, variante, manufacturer:manufacturers(name)))
+    `)
+    .eq('work_report_id', id)
+  const assignmentById = new Map<string, any>()
+  const assignmentByDevice = new Map<string, any>()
+  for (const a of (assignmentRows ?? []) as any[]) {
+    assignmentById.set(a.id, a)
+    if (a.kind !== 'austausch_rein') assignmentByDevice.set(a.device_id, a)
+  }
+  const KIND_LABEL_DE: Record<string, string> = {
+    leihe: 'Leihe',
+    verkauf: 'Verkauf',
+    austausch_raus: 'Austausch',
+  }
+  function pairFor(deviceId: string): { name: string; serial: string | null } | null {
+    const a = assignmentByDevice.get(deviceId)
+    if (!a || a.kind !== 'austausch_raus' || !a.swap_pair_id) return null
+    const p = assignmentById.get(a.swap_pair_id)
+    if (!p?.device) return null
+    return { name: deviceDisplayName(p.device.model), serial: p.device.serial_number ?? null }
+  }
+
   let pdfUrl: string | null = null
   if (report.pdf_path) {
     const { data: signed } = await supabase.storage
@@ -152,15 +179,44 @@ export default async function BerichtDetailPage({ params }: PageProps) {
         {devices.length > 0 && (
           <div className="p-5">
             <div className="kb-label mb-3">Installierte Geräte</div>
-            <div className="space-y-2">
-              {devices.map((d: any) => (
-                <div key={d.id} className="flex items-center justify-between text-[13px]">
-                  <span className="text-[var(--ink-2)] font-medium">{deviceDisplayName(d.model)}</span>
-                  {d.serial_number && (
-                    <span className="text-[var(--ink-4)] font-mono text-[11.5px]">{d.serial_number}</span>
-                  )}
-                </div>
-              ))}
+            <div className="space-y-2.5">
+              {devices.map((d: any) => {
+                const a = assignmentByDevice.get(d.id)
+                const kindText = a?.kind ? KIND_LABEL_DE[a.kind] ?? a.kind : null
+                const pair = pairFor(d.id)
+                return (
+                  <div key={d.id} className="flex flex-col gap-1">
+                    <div className="flex items-center justify-between gap-2 text-[13px] flex-wrap">
+                      <span className="text-[var(--ink-2)] font-medium">{deviceDisplayName(d.model)}</span>
+                      <div className="flex items-center gap-2">
+                        {kindText && (
+                          <span className={
+                            a?.kind === 'verkauf'
+                              ? 'inline-flex items-center rounded-full px-2 py-0.5 text-[10.5px] font-medium bg-[var(--paper-3)] text-[var(--ink-3)]'
+                              : a?.kind === 'austausch_raus'
+                                ? 'inline-flex items-center rounded-full px-2 py-0.5 text-[10.5px] font-medium bg-[var(--amber-tint)] text-[var(--amber)]'
+                                : 'inline-flex items-center rounded-full px-2 py-0.5 text-[10.5px] font-medium bg-[var(--blue-tint)] text-[var(--blue-ink)]'
+                          }>
+                            {kindText}
+                          </span>
+                        )}
+                        {d.serial_number && (
+                          <span className="text-[var(--ink-4)] font-mono text-[11.5px]">SN {d.serial_number}</span>
+                        )}
+                      </div>
+                    </div>
+                    {pair && (
+                      <div className="text-[12px] text-[var(--ink-3)] pl-3 border-l-2 border-[var(--amber)] flex items-center gap-2">
+                        <span>↳ Rückläufer zur Reparatur:</span>
+                        <span className="text-[var(--ink-2)]">{pair.name}</span>
+                        {pair.serial && (
+                          <span className="text-[var(--ink-4)] font-mono">SN {pair.serial}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           </div>
         )}

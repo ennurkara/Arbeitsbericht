@@ -24,9 +24,28 @@ export interface ReportPdfInput {
     start_time: string
     end_time: string | null
   }
-  devices: Array<{ name: string; serial_number: string | null }>
+  /** Eingesetzte Geräte. Wenn ein Gerät via Austausch zum Kunden ging, wird
+   *  das vom Kunden zurückgenommene Gerät (Rückläufer) als pair_* mitgegeben
+   *  und im PDF als zweite Zeile in der Material-/Leistungs-Tabelle gerendert. */
+  devices: Array<{
+    name: string
+    serial_number: string | null
+    /** Lifecycle-Aktion aus device_assignments — null = wenn nicht ermittelbar. */
+    kind?: 'leihe' | 'verkauf' | 'austausch_raus' | null
+    pair_name?: string | null
+    pair_serial?: string | null
+  }>
   technicianSignature: string | null // data:image/png;base64,...
   customerSignature: string | null
+}
+
+function kindLabel(kind: string | null | undefined): string | null {
+  switch (kind) {
+    case 'leihe':          return 'Leihe'
+    case 'verkauf':        return 'Verkauf'
+    case 'austausch_raus': return 'Austausch'
+    default:               return null
+  }
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -181,15 +200,35 @@ export async function renderReportPdf(input: ReportPdfInput): Promise<Uint8Array
     setText(form, `kb_leistung_z${i}`, descLines[i - 1] ?? '')
   }
 
-  // ─── Material-Tabelle: pro eingesetztes Gerät 1 Zeile (Menge=1) ──────
-  // 14 Zeilen verfügbar, alles darüber wird abgeschnitten.
+  // ─── Material-Tabelle: pro eingesetztes Gerät 1 Zeile (Menge=1).
+  //     Bei Austausch zusätzlich eine Zeile für den Rückläufer. 14 Zeilen
+  //     verfügbar, alles darüber wird abgeschnitten.
+  type MaterialEntry = { menge: string; text: string; serial: string }
+  const entries: MaterialEntry[] = []
+  for (const d of input.devices) {
+    const label = kindLabel(d.kind)
+    entries.push({
+      menge: '1',
+      text: label ? `${d.name} — ${label}` : d.name,
+      serial: d.serial_number ?? '',
+    })
+    // Bei Austausch: Rückläufer als zweite Zeile
+    if (d.kind === 'austausch_raus' && (d.pair_name || d.pair_serial)) {
+      entries.push({
+        menge: '1',
+        text: d.pair_name
+          ? `↳ Rückläufer zur Reparatur: ${d.pair_name}`
+          : '↳ Rückläufer zur Reparatur',
+        serial: d.pair_serial ?? '',
+      })
+    }
+  }
   const maxRows = 14
-  for (let i = 0; i < Math.min(input.devices.length, maxRows); i++) {
-    const d = input.devices[i]
+  for (let i = 0; i < Math.min(entries.length, maxRows); i++) {
     const row = i + 1
-    setText(form, `kb_m_menge_${row}`, '1')
-    setText(form, `kb_m_text_${row}`, d.name)
-    setText(form, `kb_m_serial_${row}`, d.serial_number ?? '')
+    setText(form, `kb_m_menge_${row}`, entries[i].menge)
+    setText(form, `kb_m_text_${row}`, entries[i].text)
+    setText(form, `kb_m_serial_${row}`, entries[i].serial)
   }
 
   // ─── Zeit-Block ──────────────────────────────────────────────────────
