@@ -137,11 +137,10 @@ export function StepGeraete({ data, onNext }: StepGeraeteProps) {
         })
         return prev.filter(x => x !== id)
       }
-      // Beim Hinzufügen: TSE-Devices kriegen fest 'verkauf' (= installiert),
-      // andere Geräte bekommen 'leihe' als Default.
+      // Default-Aktion = Installation (DB-kind 'verkauf') für alle Geräte;
+      // TSE-Devices behalten diesen Default ohnehin als einzige Option.
       const dev = stockDevices.find(d => d.id === id)
-      const defaultKind: AssignmentKind = dev && isTse(dev) ? 'verkauf' : 'leihe'
-      setAssignments(a => ({ ...a, [id]: { kind: defaultKind, swapInDeviceId: null } }))
+      setAssignments(a => ({ ...a, [id]: { kind: 'verkauf', swapInDeviceId: null } }))
       if (dev && isTse(dev)) {
         setTseTargets(t => ({ ...t, [id]: null }))
       }
