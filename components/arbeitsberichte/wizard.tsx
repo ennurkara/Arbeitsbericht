@@ -219,6 +219,9 @@ export function Wizard({ profile, initialDraft }: WizardProps) {
     // Pro Gerät die assign_device-RPC mit der gewählten Aktion (Leihe / Verkauf
      // / Austausch) aufrufen. Setzt atomar Status + current_customer_id +
      // schreibt eine device_assignments-Historienzeile (verlinkt mit dem AB).
+     // Bei Fehler: Bericht zurück auf 'entwurf' rollen und abbrechen, sonst
+     // bleibt der AB als 'abgeschlossen' liegen, ohne dass die Geräte-Buchung
+     // tatsächlich geschrieben wurde — wäre ein inkonsistenter Zustand.
      for (const deviceId of merged.deviceIds) {
        const choice = merged.deviceAssignments[deviceId] ?? { kind: 'leihe' as const, swapInDeviceId: null }
        const { error: assignErr } = await supabase.rpc('assign_device', {
@@ -230,9 +233,19 @@ export function Wizard({ profile, initialDraft }: WizardProps) {
          p_notes: null,
        })
        if (assignErr) {
+         await supabase
+           .from('work_reports')
+           .update({
+             status: 'entwurf',
+             technician_signature: null,
+             customer_signature: null,
+             completed_at: null,
+           })
+           .eq('id', merged.reportId)
          toast.error('Geräte-Zuordnung fehlgeschlagen', {
-           description: assignErr.message,
+           description: `${assignErr.message} — Bericht zurück auf Entwurf gesetzt, bitte Geräteauswahl korrigieren.`,
          })
+         return
        }
      }
 

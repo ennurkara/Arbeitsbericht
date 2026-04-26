@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { renderReportPdf, type ReportPdfInput } from '@/lib/pdf-render'
 import { deviceDisplayName } from '@/lib/utils'
+import { canAccessReport, getAccessContext } from '@/lib/work-reports/access'
 
 export const runtime = 'nodejs'
 
@@ -17,8 +18,8 @@ export async function POST(req: Request) {
   }
 
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
+  const ctx = await getAccessContext(supabase)
+  if (!ctx) {
     return Response.json({ error: 'Nicht angemeldet' }, { status: 401 })
   }
 
@@ -27,7 +28,7 @@ export async function POST(req: Request) {
     .select(`
       id, report_number, description, work_hours,
       travel_from, travel_to, travel_distance_km,
-      start_time, end_time,
+      start_time, end_time, technician_id,
       technician_signature, customer_signature, status,
       customer:customers(name, address, postal_code, city, phone, email),
       technician:profiles!work_reports_technician_id_fkey(full_name),
@@ -41,6 +42,9 @@ export async function POST(req: Request) {
 
   if (reportErr || !report) {
     return Response.json({ error: 'Bericht nicht gefunden' }, { status: 404 })
+  }
+  if (!canAccessReport(ctx, (report as { technician_id: string }).technician_id)) {
+    return Response.json({ error: 'Keine Berechtigung für diesen Bericht' }, { status: 403 })
   }
   if (report.status !== 'abgeschlossen') {
     return Response.json({ error: 'Bericht ist noch nicht abgeschlossen' }, { status: 400 })
