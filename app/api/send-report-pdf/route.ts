@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getMailTransporter, MAIL_FROM } from '@/lib/mail'
+import { canAccessReport, getAccessContext } from '@/lib/work-reports/access'
 
 export const runtime = 'nodejs'
 
@@ -16,19 +17,22 @@ export async function POST(req: Request) {
   }
 
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
+  const ctx = await getAccessContext(supabase)
+  if (!ctx) {
     return Response.json({ error: 'Nicht angemeldet' }, { status: 401 })
   }
 
   const { data: report, error: reportErr } = await supabase
     .from('work_reports')
-    .select('id, report_number, pdf_path, customer:customers(name, email)')
+    .select('id, report_number, pdf_path, technician_id, customer:customers(name, email)')
     .eq('id', reportId)
     .single()
 
   if (reportErr || !report) {
     return Response.json({ error: 'Bericht nicht gefunden' }, { status: 404 })
+  }
+  if (!canAccessReport(ctx, (report as { technician_id: string }).technician_id)) {
+    return Response.json({ error: 'Keine Berechtigung für diesen Bericht' }, { status: 403 })
   }
   if (!report.pdf_path) {
     return Response.json({ error: 'Kein PDF zum Bericht hinterlegt' }, { status: 400 })
