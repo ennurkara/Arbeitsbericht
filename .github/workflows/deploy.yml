@@ -8,12 +8,14 @@ on:
 env:
   IMAGE: ghcr.io/${{ github.repository_owner }}/arbeitsbericht
   APP_DIR: /opt/apps/arbeitsbericht
+  HEALTH_URL: https://arbeitsbericht.kassen-buch.cloud/login
   NEXT_PUBLIC_SUPABASE_URL: https://supabase.kassen-buch.cloud
   NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzc2NzEwOTE0LCJleHAiOjE5MzQzOTA5MTR9.RA2qT5d5beJcrWXBFCHl1cwD5uLrNNmJGUK0Z8rEERg
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
       packages: write
@@ -55,34 +57,63 @@ jobs:
   deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
+    # Hartes Cap: wenn irgendwas hängt (ssh, scp, image pull),
+    # bricht der Job spätestens hier ab und meldet failure.
+    timeout-minutes: 8
     steps:
-      # Sparse checkout — wir brauchen nur die compose file, nicht das ganze repo.
+      # Wir brauchen nur das compose-file aus dem Repo, kein full checkout.
       - uses: actions/checkout@v4
         with:
           sparse-checkout: docker-compose.prod.yml
           sparse-checkout-cone-mode: false
 
-      - name: Copy compose file to VPS
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: root
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          source: docker-compose.prod.yml
-          target: ${{ env.APP_DIR }}
-          strip_components: 0
-          overwrite: true
+      # Native SSH-Key + known_hosts statt appleboy-action — die hängt sporadisch.
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -t ed25519 -T 10 ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
 
-      - name: Rename compose file + pull + up
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: root
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          script: |
-            set -e
-            cd ${{ env.APP_DIR }}
-            mv -f docker-compose.prod.yml docker-compose.yml
+      # Compose-File überschreiben. Nur wenn sich etwas ändert relevant —
+      # ist ansonsten ein No-Op. ConnectTimeout begrenzt Hänger.
+      - name: Sync compose file to VPS
+        timeout-minutes: 2
+        run: |
+          scp -i ~/.ssh/id_ed25519 \
+              -o ConnectTimeout=30 \
+              -o ServerAliveInterval=10 \
+              -o ServerAliveCountMax=3 \
+              docker-compose.prod.yml \
+              root@${{ secrets.VPS_HOST }}:${{ env.APP_DIR }}/docker-compose.yml
+
+      - name: Pull new image + recreate container
+        timeout-minutes: 5
+        run: |
+          ssh -i ~/.ssh/id_ed25519 \
+              -o ConnectTimeout=30 \
+              -o ServerAliveInterval=10 \
+              -o ServerAliveCountMax=3 \
+              root@${{ secrets.VPS_HOST }} bash -se <<'EOSSH'
+            set -euo pipefail
+            cd /opt/apps/arbeitsbericht
             docker compose pull
             docker compose up -d --remove-orphans
             docker image prune -f
+          EOSSH
+
+      # Health-Check vom GitHub-Runner aus, damit ein nicht-bootendes
+      # Container den Workflow als "failure" markiert.
+      - name: Health check
+        run: |
+          for i in $(seq 1 18); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "${{ env.HEALTH_URL }}" || echo "000")
+            if [ "$code" = "200" ]; then
+              echo "Live nach $i Versuchen ($((i*5))s) — HTTP $code"
+              exit 0
+            fi
+            echo "  warte auf ${{ env.HEALTH_URL }} (${i}/18) — letzter HTTP=$code"
+            sleep 5
+          done
+          echo "Health check failed nach 90s — letzter HTTP=$code"
+          exit 1
