@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { Search, UserPlus } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { Customer } from '@/lib/types'
+import type { Customer, CustomerKind } from '@/lib/types'
 import type { WizardData } from './wizard'
 
 interface StepKundeProps {
@@ -23,13 +23,22 @@ export function StepKunde({ data, onNext }: StepKundeProps) {
   const [selectedId, setSelectedId] = useState(data.customerId)
   const [showNewForm, setShowNewForm] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [newCustomer, setNewCustomer] = useState({
+  const [newCustomer, setNewCustomer] = useState<{
+    name: string
+    address: string
+    postal_code: string
+    city: string
+    phone: string
+    email: string
+    customer_kind: CustomerKind
+  }>({
     name: '',
     address: '',
     postal_code: '',
     city: '',
     phone: '',
     email: '',
+    customer_kind: 'sonstige',
   })
 
   useEffect(() => {
@@ -54,6 +63,7 @@ export function StepKunde({ data, onNext }: StepKundeProps) {
       city: newCustomer.city || null,
       phone: newCustomer.phone || null,
       email: newCustomer.email || null,
+      customer_kind: newCustomer.customer_kind,
     }
     const { data: created, error } = await supabase
       .from('customers')
@@ -71,7 +81,7 @@ export function StepKunde({ data, onNext }: StepKundeProps) {
     )
     setSelectedId(created.id)
     setShowNewForm(false)
-    setNewCustomer({ name: '', address: '', postal_code: '', city: '', phone: '', email: '' })
+    setNewCustomer({ name: '', address: '', postal_code: '', city: '', phone: '', email: '', customer_kind: 'sonstige' })
     setIsLoading(false)
     toast.success('Kunde gespeichert')
   }
@@ -129,6 +139,26 @@ export function StepKunde({ data, onNext }: StepKundeProps) {
             <Label htmlFor="cname">Name *</Label>
             <Input id="cname" value={newCustomer.name}
               onChange={e => setNewCustomer(p => ({ ...p, name: e.target.value }))} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Gruppe *</Label>
+            <div className="flex gap-1 rounded-md bg-white border border-[var(--rule)] p-0.5">
+              {(['vectron', 'apro', 'sonstige'] as CustomerKind[]).map(k => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setNewCustomer(p => ({ ...p, customer_kind: k }))}
+                  className={cn(
+                    'flex-1 rounded-[5px] px-2 py-1.5 text-[12.5px] font-medium transition-colors capitalize',
+                    newCustomer.customer_kind === k
+                      ? 'bg-[var(--ink)] text-white'
+                      : 'text-[var(--ink-3)] hover:text-[var(--ink-2)]'
+                  )}
+                >
+                  {k === 'vectron' ? 'Vectron' : k === 'apro' ? 'Apro' : 'Sonstige'}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="caddress">Straße + Nr.</Label>

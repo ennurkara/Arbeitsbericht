@@ -15,6 +15,8 @@ export interface Profile {
   created_at: string
 }
 
+export type CustomerKind = 'vectron' | 'apro' | 'sonstige'
+
 export interface Customer {
   id: string
   name: string
@@ -24,6 +26,7 @@ export interface Customer {
   postal_code: string | null
   city: string | null
   notes: string | null
+  customer_kind: CustomerKind
   created_at: string
 }
 
