@@ -29,12 +29,15 @@ const input: ReportPdfInput = {
   report: {
     description:
       'TSE-Wechsel an Kasse 1.\nAlte TSE (SN 100123) ausgebaut, Status auf "ausgemustert" gesetzt. Neue TSE (SN 100456) installiert, getestet, Buchungsfähigkeit verifiziert. Tagesabschluss erfolgreich.',
-    work_hours: 2.75,
+    // Stress-Case für die ZE-Regel: 7:12 → 9:13 = 2h 1min = 121 min.
+    // Volle Viertel: 8 (= 120 min), angefangen: 1 min < 6 → keine Pauschale.
+    // Erwartet: kb_ze = "8".
+    work_hours: 121 / 60,
     travel_from: 'Alling',
     travel_to: 'München',
     travel_distance_km: 18.4,
-    start_time: '2026-04-27T08:30:00.000Z',
-    end_time: '2026-04-27T11:10:00.000Z',
+    start_time: '2026-04-27T05:12:00.000Z', // → 07:12 lokal in DE/Sommerzeit
+    end_time: '2026-04-27T07:13:00.000Z',   // → 09:13 lokal
   },
   devices: [
     { name: 'Vectron POS Touch 15', serial_number: 'V15-77881', kind: 'verkauf' },
