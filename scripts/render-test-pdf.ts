@@ -28,27 +28,23 @@ const input: ReportPdfInput = {
   technician: { full_name: 'Maxi Hartl' },
   report: {
     description:
-      'TSE-Wechsel an Kasse 1.\nAlte TSE (SN 100123) ausgebaut, Status auf "ausgemustert" gesetzt. Neue TSE (SN 100456) installiert, getestet, Buchungsfähigkeit verifiziert. Tagesabschluss erfolgreich.',
-    // Stress-Case für die ZE-Regel: 7:12 → 9:13 = 2h 1min = 121 min.
-    // Volle Viertel: 8 (= 120 min), angefangen: 1 min < 6 → keine Pauschale.
-    // Erwartet: kb_ze = "8".
-    work_hours: 121 / 60,
-    travel_from: 'Alling',
-    travel_to: 'München',
-    travel_distance_km: 18.4,
-    start_time: '2026-04-27T05:12:00.000Z', // → 07:12 lokal in DE/Sommerzeit
-    end_time: '2026-04-27T07:13:00.000Z',   // → 09:13 lokal
+      'Bestellung von Bonrollen + USB-Sticks. Versand per DHL ab Lager.',
+    work_hours: 21 / 60, // 21 min → 2 ZE
+    travel_from: '',
+    travel_to: '',
+    travel_distance_km: null,
+    start_time: '2026-04-27T07:00:00.000Z',
+    end_time: '2026-04-27T07:21:00.000Z',
   },
-  devices: [
-    { name: 'Vectron POS Touch 15', serial_number: 'V15-77881', kind: 'verkauf' },
-    {
-      name: 'Epson TSE-Modul Type-A', serial_number: 'TSE-100456', kind: 'austausch_raus',
-      pair_name: 'Epson TSE-Modul Type-A', pair_serial: 'TSE-100123',
-    },
-    { name: 'Epson Bondrucker TM-T88VII', serial_number: 'BD-44321', kind: 'leihe' },
+  // Kein Gerät — reine Bestand-Bestellung per Versand
+  devices: [],
+  stockItems: [
+    { name: 'Bonrolle 80×80mm Thermo', quantity: 2 },
+    { name: 'USB-Stick 32 GB', quantity: 1 },
   ],
   technicianSignature: BLANK_PNG,
-  customerSignature: BLANK_PNG,
+  // Keine Kunden-Unterschrift — DHL-Versand
+  customerSignature: null,
 }
 
 async function main() {

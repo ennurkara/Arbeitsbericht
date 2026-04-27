@@ -40,7 +40,8 @@ export default async function EntwurfBearbeitenPage({ params }: PageProps) {
       travel_from, travel_to, travel_distance_km,
       start_time, end_time,
       technician_signature, customer_signature,
-      devices:work_report_devices(device_id)
+      devices:work_report_devices(device_id),
+      stock_items:work_report_stock_items(model_id, quantity)
     `)
     .eq('id', id)
     .single()
@@ -63,12 +64,18 @@ export default async function EntwurfBearbeitenPage({ params }: PageProps) {
   const deviceAssignments: Record<string, { kind: 'leihe' | 'verkauf' | 'austausch'; swapInDeviceId: string | null }> =
     Object.fromEntries(deviceIds.map(id => [id, { kind: 'leihe', swapInDeviceId: null }]))
 
+  const stockSelections: Record<string, number> = Object.fromEntries(
+    ((report.stock_items ?? []) as Array<{ model_id: string; quantity: number }>)
+      .map(s => [s.model_id, s.quantity])
+  )
+
   const initialDraft = {
     reportId: report.id,
     customerId: report.customer_id ?? '',
     description: report.description ?? '',
     deviceIds,
     deviceAssignments,
+    stockSelections,
     workHours: report.work_hours != null ? String(report.work_hours) : '',
     travelFrom: report.travel_from ?? 'Parsbergstraße 16, 82239 Alling',
     travelTo: report.travel_to ?? '',
