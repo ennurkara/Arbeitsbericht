@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { nowLocalISO16 } from '@/lib/utils'
+import { nowLocalISO16, isDhlShipment } from '@/lib/utils'
 import type { Profile } from '@/lib/types'
 import { StepKunde } from './step-kunde'
 import { StepTaetigkeit } from './step-taetigkeit'
@@ -46,13 +46,10 @@ export interface WizardData {
   customerSignature: string | null
 }
 
-/** Heuristik: Wenn das Wort „DHL" (case-insensitive) in der Tätigkeit steht,
- *  geht der Versand per Post → keine Kunden-Unterschrift, automatische
- *  DHL-Pauschale auf dem PDF. */
-export function isDhlShipment(description: string | null | undefined): boolean {
-  if (!description) return false
-  return /\bdhl\b/i.test(description)
-}
+// isDhlShipment lebt jetzt zentral in lib/utils — hier nur re-exportiert,
+// weil Konsumenten (step-unterschriften, route handlers) bisher von './wizard'
+// importieren. Kein Verhaltens-Change.
+export { isDhlShipment } from '@/lib/utils'
 
 interface WizardProps {
   profile: Profile
@@ -195,7 +192,11 @@ export function Wizard({ profile, initialDraft }: WizardProps) {
         .update({ updated_at: new Date().toISOString() })
         .eq('id', merged.reportId)
     }
-    setStep(4)
+    // Bei DHL-Versand brauchen wir weder Anfahrt noch Arbeitszeit (der Kunde
+    // ist nicht vor Ort, es gibt keinen Außendienst-Einsatz). Step 4 wird
+    // übersprungen und work_hours bleibt null — PDF rendert dann ZE/€/ZE/
+    // Zeit-von-bis als leer.
+    setStep(isDhlShipment(merged.description) ? 5 : 4)
   }
 
   async function saveStep4(patch: Partial<WizardData>) {
@@ -448,7 +449,12 @@ export function Wizard({ profile, initialDraft }: WizardProps) {
       <div className="flex justify-between mt-4">
         {step > 1 && step <= 5 ? (
           <button
-            onClick={() => setStep(s => s - 1)}
+            onClick={() => setStep(s => {
+              // Symmetrisch zum Vorwärts-Skip: bei DHL überspringt der Wizard
+              // Step 4 in beide Richtungen.
+              if (s === 5 && isDhlShipment(data.description)) return 3
+              return s - 1
+            })}
             className="text-[13px] text-[var(--ink-3)] hover:text-[var(--ink)] transition-colors"
           >
             ← Zurück

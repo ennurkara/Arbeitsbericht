@@ -1,7 +1,7 @@
 import { PDFDocument, type PDFForm } from 'pdf-lib'
 import { readFile } from 'fs/promises'
 import path from 'path'
-import { calculateBillableUnits } from './utils'
+import { calculateBillableUnits, isDhlShipment } from './utils'
 
 // Abrechnungs-Konvention: 1 ZE = 15 min = 31,00 € netto. 1 Std. = 4 ZE.
 // 5-Min-Toleranz für angefangene Viertelstunden — siehe calculateBillableUnits.
@@ -186,6 +186,10 @@ export async function renderReportPdf(input: ReportPdfInput): Promise<Uint8Array
   const form = pdfDoc.getForm()
   const page = pdfDoc.getPage(0)
 
+  // DHL-Versand: wirkt sich an mehreren Stellen aus (Material-Tabelle,
+  // Zeit-Block, ZE/€-Felder). Einmal oben bestimmen.
+  const dhl = isDhlShipment(input.report.description)
+
   // ─── Customer block ──────────────────────────────────────────────────
   setText(form, 'kb_kunde', input.customer.name)
   setText(form, 'kb_strasse', input.customer.address)
@@ -250,7 +254,7 @@ export async function renderReportPdf(input: ReportPdfInput): Promise<Uint8Array
   }
 
   // DHL-Pauschale: wenn die Beschreibung „dhl" enthält, fix als letzte Zeile.
-  if (/\bdhl\b/i.test(input.report.description ?? '')) {
+  if (dhl) {
     entries.push({ menge: '1', text: DHL_FEE_LABEL, serial: '' })
   }
 
@@ -265,22 +269,34 @@ export async function renderReportPdf(input: ReportPdfInput): Promise<Uint8Array
   // ─── Zeit-Block ──────────────────────────────────────────────────────
   setText(form, 'kb_datum', fmtDate(input.report.start_time))
   setText(form, 'kb_mitarbeiter', input.technician.full_name)
-  setText(form, 'kb_zeit_von', fmtTime(input.report.start_time))
-  setText(form, 'kb_zeit_bis', fmtTime(input.report.end_time))
+  // Bei DHL-Versand bleibt Zeit von/bis leer — der Office-Mitarbeiter füllt
+  // den AB nicht zu „Arbeits-Zeitfenstern" aus.
+  if (!dhl) {
+    setText(form, 'kb_zeit_von', fmtTime(input.report.start_time))
+    setText(form, 'kb_zeit_bis', fmtTime(input.report.end_time))
+  }
   // ZE-Abrechnung: ganze Zeiteinheiten — 1. Viertel sofort, jedes weitere
   // ab der 6. Min seiner Viertelstunde. Siehe calculateBillableUnits.
-  const units = calculateBillableUnits(input.report.work_hours)
-  setText(form, 'kb_ze', units > 0 ? String(units) : '')
-  setText(form, 'kb_eur_ze', RATE_PER_UNIT_LABEL)
+  // Bei DHL-Versand grundsätzlich keine ZE/€-Pos (kein Außendienst-Aufwand);
+  // sonst nur wenn Arbeitszeit > 0.
+  const units = dhl ? 0 : calculateBillableUnits(input.report.work_hours)
+  if (units > 0) {
+    setText(form, 'kb_ze', String(units))
+    setText(form, 'kb_eur_ze', RATE_PER_UNIT_LABEL)
+  }
 
   // ─── Anfahrt ─────────────────────────────────────────────────────────
   // Distanz-km hinten an "bis" anhängen, falls vorhanden.
-  const km = fmtKm(input.report.travel_distance_km)
-  setText(form, 'kb_anfahrt_von', input.report.travel_from)
-  setText(form, 'kb_anfahrt_bis',
-    input.report.travel_to
-      ? km ? `${input.report.travel_to}  (${km} km)` : input.report.travel_to
-      : null)
+  // Bei DHL-Versand: nicht rendern, auch wenn der Draft mal Anfahrt-Werte
+  // gespeichert hatte.
+  if (!dhl) {
+    const km = fmtKm(input.report.travel_distance_km)
+    setText(form, 'kb_anfahrt_von', input.report.travel_from)
+    setText(form, 'kb_anfahrt_bis',
+      input.report.travel_to
+        ? km ? `${input.report.travel_to}  (${km} km)` : input.report.travel_to
+        : null)
+  }
 
   // ─── Unterschriften (Vorbereitung) ────────────────────────────────────
   // Ort/Datum als Text, KB- + Kunden-Signaturen folgen als PNG-Overlay

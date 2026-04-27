@@ -35,6 +35,15 @@ export function calculateWorkHours(startIso: string, endIso: string): number {
   return Math.round((minutes / 60) * 100) / 100
 }
 
+// Heuristik: Wenn das Wort „DHL" (case-insensitive) in der Tätigkeit steht,
+// geht der Versand per Post → keine Kunden-Unterschrift, keine Anfahrt /
+// Arbeitszeit, automatische DHL-Pauschale auf dem PDF. Single source of truth
+// für Wizard + PDF-Renderer.
+export function isDhlShipment(description: string | null | undefined): boolean {
+  if (!description) return false
+  return /\bdhl\b/i.test(description)
+}
+
 // ZE-Abrechnung in ganzen Zeiteinheiten:
 // - 1 ZE = 15 min
 // - Sobald gearbeitet wird, wird sofort 1 ZE gestellt (kein Toleranz-Fenster
