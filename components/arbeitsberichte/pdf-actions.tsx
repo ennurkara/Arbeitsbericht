@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { Download, RefreshCw, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -14,13 +13,14 @@ interface PdfActionsProps {
 
 export function PdfActions({ reportId, reportNumber, pdfUrl }: PdfActionsProps) {
   const router = useRouter()
-  const supabase = createClient()
   const [isRendering, setIsRendering] = useState(false)
   const [, startTransition] = useTransition()
 
   async function regenerate() {
     setIsRendering(true)
     try {
+      // Endpoint kümmert sich um Render + Upload + pdf_path-Save in einer
+      // Server-Transaktion. 2xx heißt: alles persistiert.
       const res = await fetch('/api/render-report-pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -30,28 +30,6 @@ export function PdfActions({ reportId, reportNumber, pdfUrl }: PdfActionsProps) 
         const json = await res.json().catch(() => ({}))
         throw new Error(json.error ?? `HTTP ${res.status}`)
       }
-      const pdfBlob = await res.blob()
-
-      const pdfPath = `${reportId}.pdf`
-      const { error: uploadErr } = await supabase.storage
-        .from('work-report-pdfs')
-        .upload(pdfPath, pdfBlob, { contentType: 'application/pdf', upsert: true })
-      if (uploadErr) {
-        toast.error('PDF-Upload fehlgeschlagen', { description: uploadErr.message })
-        return
-      }
-
-      const { error: saveErr } = await supabase
-        .from('work_reports')
-        .update({ pdf_path: pdfPath, pdf_uploaded_at: new Date().toISOString() })
-        .eq('id', reportId)
-      if (saveErr) {
-        toast.error('PDF-Pfad konnte nicht gespeichert werden', {
-          description: saveErr.message,
-        })
-        return
-      }
-
       toast.success('PDF wurde neu erzeugt')
       startTransition(() => router.refresh())
     } catch (e) {

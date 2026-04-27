@@ -143,7 +143,36 @@ export async function POST(req: Request) {
     return Response.json({ error: `PDF-Rendering fehlgeschlagen: ${msg}` }, { status: 500 })
   }
 
-  return new Response(Buffer.from(pdfBytes), {
+  // Server-side Persistenz: Upload zum Storage + pdf_path setzen, BEVOR
+  // wir die Bytes zurückgeben. Damit ist die einzige Erfolgsbedingung für
+  // den Client „2xx kam zurück" — und dann ist der Bericht garantiert
+  // vollständig persistiert. Vorher hat der Browser das selbst gemacht
+  // (3 Schritte, kein Atomicity, Race mit dem router.push). Schlägt
+  // einer der beiden Schritte fehl, antworten wir 500 und der Client
+  // bleibt im Retry-Modus stehen.
+  const pdfPath = `${reportId}.pdf`
+  const pdfBuffer = Buffer.from(pdfBytes)
+  const { error: uploadErr } = await supabase.storage
+    .from('work-report-pdfs')
+    .upload(pdfPath, pdfBuffer, { contentType: 'application/pdf', upsert: true })
+  if (uploadErr) {
+    return Response.json(
+      { error: `Storage-Upload fehlgeschlagen: ${uploadErr.message}` },
+      { status: 500 },
+    )
+  }
+  const { error: saveErr } = await supabase
+    .from('work_reports')
+    .update({ pdf_path: pdfPath, pdf_uploaded_at: new Date().toISOString() })
+    .eq('id', reportId)
+  if (saveErr) {
+    return Response.json(
+      { error: `pdf_path-Update fehlgeschlagen: ${saveErr.message}` },
+      { status: 500 },
+    )
+  }
+
+  return new Response(pdfBuffer, {
     status: 200,
     headers: {
       'Content-Type': 'application/pdf',
