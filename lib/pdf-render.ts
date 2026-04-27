@@ -2,6 +2,13 @@ import { PDFDocument, type PDFForm } from 'pdf-lib'
 import { readFile } from 'fs/promises'
 import path from 'path'
 
+// Abrechnungs-Konvention: 1 ZE (Zeiteinheit) = 15 min = 31,00 € netto.
+// 1 Std. = 4 ZE. Wenn sich Rate oder Auflösung ändern, hier anpassen — die
+// Vorlage muss dann aber auch (gedruckter Hinweistext „1 Std. = 4 ZE")
+// nachgezogen werden.
+const UNITS_PER_HOUR = 4
+const RATE_PER_UNIT_LABEL = 'á 31,00 € netto'
+
 // Render-Input. Alles in einem flachen Objekt, damit der API-Handler nur
 // einmal aus der DB liest und das hier 100% pure ist.
 export interface ReportPdfInput {
@@ -69,13 +76,6 @@ function fmtKm(km: number | null | undefined): string {
   return new Intl.NumberFormat('de-DE', {
     minimumFractionDigits: 1, maximumFractionDigits: 1,
   }).format(km)
-}
-
-function fmtHours(h: number | null | undefined): string {
-  if (h == null || !Number.isFinite(h) || h <= 0) return ''
-  return new Intl.NumberFormat('de-DE', {
-    minimumFractionDigits: 2, maximumFractionDigits: 2,
-  }).format(h)
 }
 
 /** Wickelt Text auf maxLines Zeilen mit ca. maxChars pro Zeile (Heuristik). */
@@ -238,8 +238,15 @@ export async function renderReportPdf(input: ReportPdfInput): Promise<Uint8Array
   setText(form, 'kb_mitarbeiter', input.technician.full_name)
   setText(form, 'kb_zeit_von', fmtTime(input.report.start_time))
   setText(form, 'kb_zeit_bis', fmtTime(input.report.end_time))
-  // ZE = Zeiteinheiten (1 Std. = 6 ZE). Wir tragen die Stunden ein.
-  setText(form, 'kb_ze', fmtHours(input.report.work_hours))
+  // ZE-Anzahl aus work_hours. Math.round() schützt vor Floating-Point-Müll
+  // (2,75 × 4 = 11.000000000000002). Im Wizard wird work_hours bereits auf
+  // Vielfache von 0,25 normiert, also ist round() hier verlustfrei.
+  const wh = input.report.work_hours
+  const units = wh != null && Number.isFinite(wh) && wh > 0
+    ? Math.round(wh * UNITS_PER_HOUR)
+    : 0
+  setText(form, 'kb_ze', units > 0 ? String(units) : '')
+  setText(form, 'kb_eur_ze', RATE_PER_UNIT_LABEL)
 
   // ─── Anfahrt ─────────────────────────────────────────────────────────
   // Distanz-km hinten an "bis" anhängen, falls vorhanden.
