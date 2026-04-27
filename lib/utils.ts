@@ -25,13 +25,26 @@ export function formatDateTime(iso: string): string {
   }).format(new Date(iso))
 }
 
-// Arbeitsdauer aus Beginn/Ende, auf die Minute gerundet und als Dezimal-
-// stunden zurückgegeben. Der DB-Typ ist numeric(5,2), also reicht 1/60 ≈ 0.02
-// Auflösung. Beispiel: 2h 40min → 2.67.
+// Aufrunden auf die nächste angefangene Viertelstunde. Service-Abrechnung
+// erfolgt in 15-Min-Einheiten — eine angebrochene Viertelstunde wird voll
+// berechnet. Eingabe und Output beide in Dezimalstunden.
+// Beispiele: 2.10 → 2.25, 2.67 → 2.75, 2.75 → 2.75 (no-op), 0 → 0.
+export function roundUpToQuarterHour(hours: number): number {
+  if (!Number.isFinite(hours) || hours <= 0) return 0
+  // Erst auf ganze Minuten runden, damit Floating-Point-Müll wie
+  // 2.75 * 60 = 165.00000000000003 nicht zu einem Sprung auf 3.0 führt.
+  const minutes = Math.round(hours * 60)
+  const quarterHours = Math.ceil(minutes / 15)
+  return Math.round((quarterHours * 15) / 60 * 100) / 100
+}
+
+// Arbeitsdauer aus Beginn/Ende. Roh-Differenz wird minutengenau berechnet
+// und dann auf die nächste angefangene Viertelstunde aufgerundet, weil die
+// Abrechnung in 15-Minuten-Einheiten erfolgt. Beispiel: 2h 40min → 2.75.
 export function calculateWorkHours(startIso: string, endIso: string): number {
   const diffMs = new Date(endIso).getTime() - new Date(startIso).getTime()
   const minutes = Math.max(0, Math.round(diffMs / 60000))
-  return Math.round((minutes / 60) * 100) / 100
+  return roundUpToQuarterHour(minutes / 60)
 }
 
 // Formatiert Dezimalstunden als "Xh Ymin" für die Anzeige.

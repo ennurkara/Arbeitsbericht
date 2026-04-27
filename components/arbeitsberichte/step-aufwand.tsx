@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { MapPin, Loader2, Route } from 'lucide-react'
-import { calculateWorkHours, formatHoursMinutes, nowLocalISO16 } from '@/lib/utils'
+import { calculateWorkHours, formatHoursMinutes, nowLocalISO16, roundUpToQuarterHour } from '@/lib/utils'
 import { detectCurrentAddress, calculateRouteDistance } from '@/lib/geolocation'
 import type { WizardData } from './wizard'
 
@@ -90,15 +90,21 @@ export function StepAufwand({ data, onNext }: StepAufwandProps) {
   }, [travelFrom, travelTo])
 
   async function handleNext() {
-    if (!workHours || parseFloat(workHours) <= 0) {
+    const raw = parseFloat(workHours)
+    if (!workHours || raw <= 0) {
       toast.error('Bitte Arbeitsaufwand in Stunden angeben')
       return
     }
+    // Manuelle Eingabe (z.B. 2.10) auf nächste Viertelstunde aufrunden, damit
+    // krumme Werte nicht durchrutschen. UI-State wird mit aktualisiert, damit
+    // der User den abgerechneten Wert noch sieht.
+    const rounded = roundUpToQuarterHour(raw)
+    if (rounded !== raw) setWorkHours(String(rounded))
     setIsLoading(true)
     await onNext({
       startTime,
       endTime,
-      workHours,
+      workHours: String(rounded),
       travelFrom,
       travelTo,
       travelDistanceKm: distanceKm,
@@ -127,13 +133,13 @@ export function StepAufwand({ data, onNext }: StepAufwandProps) {
 
       <div className="space-y-1.5">
         <Label htmlFor="workHours">Arbeitsaufwand (Stunden) *</Label>
-        <Input id="workHours" type="number" min="0" step="0.01"
+        <Input id="workHours" type="number" min="0" step="0.25"
           value={workHours} onChange={e => setWorkHours(e.target.value)}
-          placeholder="z.B. 2.67" />
+          placeholder="z.B. 2.75" />
         <p className="text-[11.5px] text-[var(--ink-4)]">
           {workHours && parseFloat(workHours) > 0
-            ? `${formatHoursMinutes(parseFloat(workHours))} · wird aus Start/Ende minutengenau berechnet, manuell überschreibbar`
-            : 'Wird aus Start/Ende minutengenau berechnet, manuell überschreibbar'}
+            ? `${formatHoursMinutes(parseFloat(workHours))} · Abrechnung in 15-Min-Einheiten — angefangene Viertelstunde wird voll berechnet`
+            : 'Wird aus Start/Ende berechnet und auf die nächste Viertelstunde aufgerundet (15-Min-Abrechnung)'}
         </p>
       </div>
 
