@@ -4,11 +4,29 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Search, X, Camera, Loader2 } from 'lucide-react'
+import { Search, X, Camera, Loader2, Minus, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn, deviceDisplayName } from '@/lib/utils'
 import type { Device } from '@/lib/types'
 import type { WizardData, AssignmentKind, DeviceAssignmentChoice } from './wizard'
+
+interface StockItemRow {
+  model_id: string
+  available: number
+  model: {
+    modellname: string | null
+    variante: string | null
+    manufacturer: { name: string | null } | null
+    category: { name: string | null; kind: string | null } | null
+  } | null
+}
+
+function stockDisplayName(row: StockItemRow): string {
+  const m = row.model
+  if (!m) return '—'
+  const parts = [m.manufacturer?.name, m.modellname, m.variante].filter(Boolean)
+  return parts.join(' ') || '—'
+}
 
 interface StepGeraeteProps {
   data: WizardData
@@ -65,6 +83,9 @@ function isKasse(d: Pick<Device, 'model'>): boolean {
 export function StepGeraete({ data, onNext }: StepGeraeteProps) {
   const supabase = createClient()
   const [stockDevices, setStockDevices] = useState<Device[]>([])
+  /** Bestand-Positionen (Bonrollen, Installationsmaterial, USB-Sticks etc.) —
+   *  Kategorien mit kind='stock'. */
+  const [stockRows, setStockRows] = useState<StockItemRow[]>([])
   /** Aktuell beim Wizard-Kunden verliehene Geräte — Swap-In-Kandidaten. */
   const [customerDevices, setCustomerDevices] = useState<Device[]>([])
   const [search, setSearch] = useState('')
@@ -74,6 +95,10 @@ export function StepGeraete({ data, onNext }: StepGeraeteProps) {
   )
   const [tseTargets, setTseTargets] = useState<Record<string, string | null>>(
     data.tseInstallTargets ?? {},
+  )
+  /** model_id → ausgewählte Menge. Persistenz in Step 3 → work_report_stock_items. */
+  const [stockSelections, setStockSelections] = useState<Record<string, number>>(
+    data.stockSelections ?? {},
   )
   const [isLoading, setIsLoading] = useState(false)
   const [isScanning, setIsScanning] = useState(false)
@@ -92,6 +117,39 @@ export function StepGeraete({ data, onNext }: StepGeraeteProps) {
           deviceDisplayName(a.model).localeCompare(deviceDisplayName(b.model))
         )
         setStockDevices(list)
+      })
+  }, [])
+
+  // Bestand-Positionen: nur Modelle deren Kategorie kind='stock' ist und die
+  // tatsächlich einen Bestand-Eintrag haben (auch bei quantity=0 anzeigen,
+  // damit der User „leer" sehen kann statt das Modell zu vermissen).
+  useEffect(() => {
+    supabase
+      .from('stock_items')
+      .select(`
+        model_id,
+        quantity,
+        model:models(
+          modellname,
+          variante,
+          manufacturer:manufacturers(name),
+          category:categories(name, kind)
+        )
+      `)
+      .then(({ data: rows }) => {
+        const filtered = ((rows ?? []) as unknown as Array<{
+          model_id: string
+          quantity: number | null
+          model: StockItemRow['model']
+        }>)
+          .filter(r => r.model?.category?.kind === 'stock')
+          .map<StockItemRow>(r => ({
+            model_id: r.model_id,
+            available: r.quantity ?? 0,
+            model: r.model,
+          }))
+        filtered.sort((a, b) => stockDisplayName(a).localeCompare(stockDisplayName(b)))
+        setStockRows(filtered)
       })
   }, [])
 
@@ -120,6 +178,35 @@ export function StepGeraete({ data, onNext }: StepGeraeteProps) {
       (d.serial_number ?? '').toLowerCase().includes(needle)
     )
   })
+
+  const filteredStock = stockRows.filter(r => {
+    const needle = search.toLowerCase()
+    if (!needle) return true
+    return (
+      stockDisplayName(r).toLowerCase().includes(needle) ||
+      (r.model?.category?.name ?? '').toLowerCase().includes(needle)
+    )
+  })
+
+  function setStockQty(modelId: string, qty: number) {
+    setStockSelections(prev => {
+      const next = { ...prev }
+      if (qty <= 0) delete next[modelId]
+      else next[modelId] = qty
+      return next
+    })
+  }
+
+  function bumpStockQty(modelId: string, delta: number) {
+    setStockSelections(prev => {
+      const cur = prev[modelId] ?? 0
+      const next = { ...prev }
+      const updated = Math.max(0, cur + delta)
+      if (updated === 0) delete next[modelId]
+      else next[modelId] = updated
+      return next
+    })
+  }
 
   function toggleDevice(id: string) {
     setSelectedIds(prev => {
@@ -206,6 +293,7 @@ export function StepGeraete({ data, onNext }: StepGeraeteProps) {
       deviceIds: selectedIds,
       deviceAssignments: assignments,
       tseInstallTargets: tseTargets,
+      stockSelections,
     })
     setIsLoading(false)
   }
@@ -447,10 +535,78 @@ export function StepGeraete({ data, onNext }: StepGeraeteProps) {
         ))}
       </div>
 
+      {/* Bestand-Positionen: Bonrollen, Installationsmaterial, USB-Sticks etc.
+          Mengen werden im Wizard nur gesammelt, das tatsächliche Decrement
+          läuft beim Finish atomar via consume_stock_for_report. */}
+      {filteredStock.length > 0 && (
+        <div>
+          <h3 className="text-[13px] font-semibold text-[var(--ink-2)] mb-2 mt-1">
+            Bestand
+          </h3>
+          <div className="rounded-md border border-[var(--rule)] bg-white divide-y divide-[var(--rule-soft)]">
+            {filteredStock.map(row => {
+              const qty = stockSelections[row.model_id] ?? 0
+              const isSelected = qty > 0
+              return (
+                <div
+                  key={row.model_id}
+                  className={cn(
+                    'flex items-center gap-3 px-3 py-2.5',
+                    isSelected && 'bg-[var(--blue-tint)]'
+                  )}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[13px] font-medium text-[var(--ink)] truncate">
+                      {stockDisplayName(row)}
+                    </div>
+                    <div className="text-[11.5px] text-[var(--ink-4)]">
+                      {row.model?.category?.name ?? '—'} · auf Lager: {row.available}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => bumpStockQty(row.model_id, -1)}
+                      disabled={qty === 0}
+                      aria-label="Menge verringern"
+                      className="rounded-md border border-[var(--rule)] p-1 text-[var(--ink-3)] hover:bg-[var(--paper-2)] disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <Minus className="h-3.5 w-3.5" />
+                    </button>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={qty}
+                      onChange={e => setStockQty(row.model_id, Math.max(0, parseInt(e.target.value, 10) || 0))}
+                      className="w-14 text-center"
+                      aria-label={`Menge ${stockDisplayName(row)}`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => bumpStockQty(row.model_id, 1)}
+                      aria-label="Menge erhöhen"
+                      className="rounded-md border border-[var(--rule)] p-1 text-[var(--ink-3)] hover:bg-[var(--paper-2)]"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       <Button className="w-full" onClick={handleNext} disabled={isLoading}>
-        {selectedIds.length === 0
-          ? 'Überspringen →'
-          : `Weiter → (${selectedIds.length} Gerät${selectedIds.length !== 1 ? 'e' : ''})`}
+        {(() => {
+          const dCount = selectedIds.length
+          const sCount = Object.values(stockSelections).filter(q => q > 0).length
+          if (dCount === 0 && sCount === 0) return 'Überspringen →'
+          const parts: string[] = []
+          if (dCount > 0) parts.push(`${dCount} Gerät${dCount !== 1 ? 'e' : ''}`)
+          if (sCount > 0) parts.push(`${sCount} Bestand-Position${sCount !== 1 ? 'en' : ''}`)
+          return `Weiter → (${parts.join(', ')})`
+        })()}
       </Button>
     </div>
   )

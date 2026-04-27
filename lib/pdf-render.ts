@@ -9,6 +9,11 @@ import { calculateBillableUnits } from './utils'
 // € netto" zeigt die Vorlage neben dem Eingabefeld €/ZE an.
 const RATE_PER_UNIT_LABEL = 'á 31,00 € netto'
 
+// DHL-Pauschale: wenn die Tätigkeit den Hinweis „dhl" enthält, kommt eine
+// extra Material-Zeile aufs PDF. Reine PDF-Position, kein Lager-Movement.
+const DHL_FEE_NETTO = 11
+const DHL_FEE_LABEL = `DHL Pauschale (${new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(DHL_FEE_NETTO)} netto)`
+
 // Render-Input. Alles in einem flachen Objekt, damit der API-Handler nur
 // einmal aus der DB liest und das hier 100% pure ist.
 export interface ReportPdfInput {
@@ -41,6 +46,13 @@ export interface ReportPdfInput {
     kind?: 'leihe' | 'verkauf' | 'austausch_raus' | null
     pair_name?: string | null
     pair_serial?: string | null
+  }>
+  /** Bestand-Positionen (Bonrollen, Installationsmaterial …). Werden nach
+   *  den Geräten in die Material-Tabelle gerendert — Spalte „Menge" mit der
+   *  Stückzahl, „Material/Leistungen" mit dem Modellnamen, ohne Preis. */
+  stockItems?: Array<{
+    name: string
+    quantity: number
   }>
   technicianSignature: string | null // data:image/png;base64,...
   customerSignature: string | null
@@ -201,8 +213,10 @@ export async function renderReportPdf(input: ReportPdfInput): Promise<Uint8Array
   }
 
   // ─── Material-Tabelle: pro eingesetztes Gerät 1 Zeile (Menge=1).
-  //     Bei Austausch zusätzlich eine Zeile für den Rückläufer. 14 Zeilen
-  //     verfügbar, alles darüber wird abgeschnitten.
+  //     Bei Austausch zusätzlich eine Zeile für den Rückläufer.
+  //     Danach: Bestand-Positionen (Menge=Stückzahl, ohne Preis).
+  //     Wenn DHL-Versand erkannt: am Ende eine DHL-Pauschale-Zeile.
+  //     14 Zeilen verfügbar, alles darüber wird abgeschnitten.
   type MaterialEntry = { menge: string; text: string; serial: string }
   const entries: MaterialEntry[] = []
   for (const d of input.devices) {
@@ -225,6 +239,21 @@ export async function renderReportPdf(input: ReportPdfInput): Promise<Uint8Array
       })
     }
   }
+
+  for (const s of input.stockItems ?? []) {
+    if (s.quantity <= 0) continue
+    entries.push({
+      menge: String(s.quantity),
+      text: s.name,
+      serial: '',
+    })
+  }
+
+  // DHL-Pauschale: wenn die Beschreibung „dhl" enthält, fix als letzte Zeile.
+  if (/\bdhl\b/i.test(input.report.description ?? '')) {
+    entries.push({ menge: '1', text: DHL_FEE_LABEL, serial: '' })
+  }
+
   const maxRows = 14
   for (let i = 0; i < Math.min(entries.length, maxRows); i++) {
     const row = i + 1

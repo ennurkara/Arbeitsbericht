@@ -94,6 +94,21 @@ export async function POST(req: Request) {
     }
   })
 
+  // Bestand-Positionen (Bonrollen, Installationsmaterial …) auf dem PDF
+  // landen in der Material-Tabelle als „Menge / Modellname". Reihenfolge:
+  // erst Geräte, dann Bestand (siehe lib/pdf-render.ts).
+  const { data: stockRows } = await supabase
+    .from('work_report_stock_items')
+    .select(`
+      quantity,
+      model:models(modellname, variante, manufacturer:manufacturers(name))
+    `)
+    .eq('work_report_id', reportId)
+  const stockItems = ((stockRows ?? []) as any[]).map(r => ({
+    name: deviceDisplayName(r.model),
+    quantity: r.quantity ?? 0,
+  }))
+
   const input: ReportPdfInput = {
     reportNumber: report.report_number ?? null,
     customer: {
@@ -115,6 +130,7 @@ export async function POST(req: Request) {
       end_time: report.end_time ?? null,
     },
     devices,
+    stockItems,
     technicianSignature: report.technician_signature,
     customerSignature: report.customer_signature,
   }

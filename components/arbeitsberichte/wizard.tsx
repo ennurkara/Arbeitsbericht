@@ -32,6 +32,10 @@ export interface WizardData {
   /** Pro TSE-Device im AB: in welche Kasse wird sie installiert?
    *  Schreibt beim Finish tse_details.installed_in_device. */
   tseInstallTargets: Record<string, string | null>
+  /** Bestand-Positionen: model_id → quantity. Bonrollen, Installationsmaterial,
+   *  USB-Sticks etc. (Kategorien mit `kind='stock'`). Buchung läuft beim
+   *  Finish über die RPC `consume_stock_for_report`. */
+  stockSelections: Record<string, number>
   workHours: string
   travelFrom: string
   travelTo: string
@@ -40,6 +44,14 @@ export interface WizardData {
   endTime: string
   technicianSignature: string | null
   customerSignature: string | null
+}
+
+/** Heuristik: Wenn das Wort „DHL" (case-insensitive) in der Tätigkeit steht,
+ *  geht der Versand per Post → keine Kunden-Unterschrift, automatische
+ *  DHL-Pauschale auf dem PDF. */
+export function isDhlShipment(description: string | null | undefined): boolean {
+  if (!description) return false
+  return /\bdhl\b/i.test(description)
 }
 
 interface WizardProps {
@@ -66,6 +78,7 @@ export function Wizard({ profile, initialDraft }: WizardProps) {
     deviceIds: initialDraft?.deviceIds ?? [],
     deviceAssignments: initialDraft?.deviceAssignments ?? {},
     tseInstallTargets: initialDraft?.tseInstallTargets ?? {},
+    stockSelections: initialDraft?.stockSelections ?? {},
     workHours: initialDraft?.workHours ?? '',
     travelFrom: initialDraft?.travelFrom ?? 'Parsbergstraße 16, 82239 Alling',
     travelTo: initialDraft?.travelTo ?? '',
@@ -143,6 +156,7 @@ export function Wizard({ profile, initialDraft }: WizardProps) {
     const merged = { ...data, ...patch }
     updateData(patch)
     if (merged.reportId) {
+      // Geräte-Junction neu schreiben
       await supabase
         .from('work_report_devices')
         .delete()
@@ -157,9 +171,25 @@ export function Wizard({ profile, initialDraft }: WizardProps) {
             }))
           )
       }
-      // Touch der Parent-Row, damit der updated_at-Trigger feuert. Ohne das
-      // würde Step 3 (nur Geräte-FK-Tabelle berührt) den Inaktivitäts-Timer
-      // nicht zurücksetzen — Draft könnte mid-Wizard ablaufen.
+      // Bestand-Junction neu schreiben — nur die Auswahl, kein Decrement
+      // (das passiert atomar beim Finish über consume_stock_for_report).
+      await supabase
+        .from('work_report_stock_items')
+        .delete()
+        .eq('work_report_id', merged.reportId)
+      const stockEntries = Object.entries(merged.stockSelections).filter(([, q]) => q > 0)
+      if (stockEntries.length > 0) {
+        await supabase
+          .from('work_report_stock_items')
+          .insert(
+            stockEntries.map(([modelId, quantity]) => ({
+              work_report_id: merged.reportId!,
+              model_id: modelId,
+              quantity,
+            }))
+          )
+      }
+      // Touch der Parent-Row, damit der updated_at-Trigger feuert.
       await supabase
         .from('work_reports')
         .update({ updated_at: new Date().toISOString() })
@@ -248,6 +278,34 @@ export function Wizard({ profile, initialDraft }: WizardProps) {
          return
        }
      }
+
+    // Bestand abbuchen — atomar pro Position via RPC. Bei Fehler: Bericht
+    // zurück auf 'entwurf' (analog zum Geräte-Block oben). Bereits gebuchte
+    // Positionen bleiben gebucht, aber bei einem Retry stellt
+    // consume_stock_for_report über UPSERT konsistente Mengen wieder her.
+    const stockEntries = Object.entries(merged.stockSelections).filter(([, q]) => q > 0)
+    for (const [modelId, qty] of stockEntries) {
+      const { error: stockErr } = await supabase.rpc('consume_stock_for_report', {
+        p_model_id: modelId,
+        p_quantity: qty,
+        p_work_report_id: merged.reportId,
+      })
+      if (stockErr) {
+        await supabase
+          .from('work_reports')
+          .update({
+            status: 'entwurf',
+            technician_signature: null,
+            customer_signature: null,
+            completed_at: null,
+          })
+          .eq('id', merged.reportId)
+        toast.error('Bestand-Buchung fehlgeschlagen', {
+          description: `${stockErr.message} — Bericht zurück auf Entwurf.`,
+        })
+        return
+      }
+    }
 
     // TSE-Module mit Ziel-Kasse koppeln: tse_details.installed_in_device setzen.
     // Optional vorher: alte TSE in derselben Kasse als ausgemustert markieren —
