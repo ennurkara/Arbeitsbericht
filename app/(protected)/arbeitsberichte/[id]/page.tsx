@@ -47,11 +47,14 @@ export default async function BerichtDetailPage({ params }: PageProps) {
   if (!report) notFound()
 
   const canView =
-    role === 'admin' || role === 'viewer' || report.technician_id === user.id
+    role === 'admin' || role === 'mitarbeiter' || role === 'viewer'
+    || report.technician_id === user.id
   if (!canView) redirect('/arbeitsberichte')
 
   // Entwürfe (eigene oder als Admin) öffnen direkt im Bearbeiten-Wizard.
-  // Viewer sehen den Entwurf weiterhin als read-only Detail-View.
+  // Mitarbeiter + Viewer sehen den Entwurf als read-only Detail-View — sie
+  // dürfen fremde Drafts nicht ändern (ihr Workflow ist Übersicht, nicht
+  // Eingriff in einen laufenden Techniker-Bericht).
   if (
     report.status === 'entwurf' &&
     (role === 'admin' || report.technician_id === user.id)

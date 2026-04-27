@@ -18,18 +18,25 @@ export default async function DashboardPage() {
   const role = profile?.role as UserRole
   const canCreate = role === 'admin' || role === 'mitarbeiter' || role === 'techniker'
 
+  // Techniker sehen nur eigene Berichte; admin / mitarbeiter / viewer sehen
+  // den globalen Stand. Spiegelt die RLS-Policies aus Migration 042.
+  const isTechnician = role === 'techniker'
+  const recentQuery = supabase
+    .from('work_reports')
+    .select('*, customer:customers(name)')
+    .order('created_at', { ascending: false })
+    .limit(5)
+  const draftQuery = supabase
+    .from('work_reports')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'entwurf')
+  if (isTechnician) {
+    recentQuery.eq('technician_id', user.id)
+    draftQuery.eq('technician_id', user.id)
+  }
   const [{ data: recentReports }, { count: draftCount }] = await Promise.all([
-    supabase
-      .from('work_reports')
-      .select('*, customer:customers(name)')
-      .eq('technician_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(5),
-    supabase
-      .from('work_reports')
-      .select('*', { count: 'exact', head: true })
-      .eq('technician_id', user.id)
-      .eq('status', 'entwurf'),
+    recentQuery,
+    draftQuery,
   ])
 
   return (

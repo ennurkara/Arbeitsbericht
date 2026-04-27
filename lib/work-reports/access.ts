@@ -18,9 +18,9 @@ export async function getAccessContext(supabase: SupabaseClient): Promise<Access
   return { user: { id: user.id }, role: (profile?.role ?? null) as AccessContext['role'] }
 }
 
-/** Spiegelt die SELECT-RLS-Policy aus Migration 016: Techniker sehen
- *  eigene Berichte; admin + viewer sehen alle. */
+/** Spiegelt die SELECT-RLS-Policy aus Migration 042 (war 016 + Erweiterung):
+ *  Techniker sehen eigene Berichte; admin, mitarbeiter und viewer sehen alle. */
 export function canAccessReport(ctx: AccessContext, technicianId: string): boolean {
-  if (ctx.role === 'admin' || ctx.role === 'viewer') return true
+  if (ctx.role === 'admin' || ctx.role === 'mitarbeiter' || ctx.role === 'viewer') return true
   return technicianId === ctx.user.id
 }
