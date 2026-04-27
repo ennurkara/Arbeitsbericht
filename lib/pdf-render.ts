@@ -9,10 +9,6 @@ import { calculateBillableUnits } from './utils'
 // € netto" zeigt die Vorlage neben dem Eingabefeld €/ZE an.
 const RATE_PER_UNIT_LABEL = 'á 31,00 € netto'
 
-const UNITS_FMT = new Intl.NumberFormat('de-DE', {
-  minimumFractionDigits: 0, maximumFractionDigits: 2,
-})
-
 // Render-Input. Alles in einem flachen Objekt, damit der API-Handler nur
 // einmal aus der DB liest und das hier 100% pure ist.
 export interface ReportPdfInput {
@@ -242,11 +238,10 @@ export async function renderReportPdf(input: ReportPdfInput): Promise<Uint8Array
   setText(form, 'kb_mitarbeiter', input.technician.full_name)
   setText(form, 'kb_zeit_von', fmtTime(input.report.start_time))
   setText(form, 'kb_zeit_bis', fmtTime(input.report.end_time))
-  // ZE-Abrechnung: voll bei Vielfachen von 15 min, eine angefangene
-  // Viertelstunde zählt erst ab der 6. Min als 0,25 ZE (Mindest-Pauschale).
-  // Format: "8" / "8,25" / "9" — zwei Dezimalstellen, deutsches Komma.
+  // ZE-Abrechnung: ganze Zeiteinheiten — 1. Viertel sofort, jedes weitere
+  // ab der 6. Min seiner Viertelstunde. Siehe calculateBillableUnits.
   const units = calculateBillableUnits(input.report.work_hours)
-  setText(form, 'kb_ze', units > 0 ? UNITS_FMT.format(units) : '')
+  setText(form, 'kb_ze', units > 0 ? String(units) : '')
   setText(form, 'kb_eur_ze', RATE_PER_UNIT_LABEL)
 
   // ─── Anfahrt ─────────────────────────────────────────────────────────

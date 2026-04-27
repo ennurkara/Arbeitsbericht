@@ -35,24 +35,31 @@ export function calculateWorkHours(startIso: string, endIso: string): number {
   return Math.round((minutes / 60) * 100) / 100
 }
 
-// ZE-Abrechnung mit 5-Min-Toleranz:
+// ZE-Abrechnung in ganzen Zeiteinheiten:
 // - 1 ZE = 15 min
-// - Volle Viertelstunden zählen 1:1
-// - Eine angefangene Viertelstunde zählt erst AB der 6. Minute
-//   (also bei 0–5 min angefangen → 0; bei 6–14 min angefangen → 0,25)
+// - Sobald gearbeitet wird, wird sofort 1 ZE gestellt (kein Toleranz-Fenster
+//   für die 1. Viertelstunde — von 0:01 bis 0:15 sind 1 ZE).
+// - Jede WEITERE angefangene Viertelstunde hat 5 Minuten Toleranz: erst ab
+//   der 6. Min des jeweiligen Viertels wird sie berechnet.
+// Schwellen: k-tes Viertel (k ≥ 2) ab 15·(k−1)+6 Min → ZE = k.
 // Beispiele:
-//   121 min (8 voll + 1) → 8
-//   125 min (8 voll + 5) → 8
-//   126 min (8 voll + 6) → 8,25
-//   134 min (8 voll + 14) → 8,25
-//   135 min (9 voll)     → 9
+//   1 min  → 1
+//   15 min → 1   (1. Viertel komplett, 2. noch nicht angefangen)
+//   20 min → 1   (2. angefangen, in Toleranz)
+//   21 min → 2   (2. über Toleranz)
+//   35 min → 2
+//   36 min → 3
+//   60 min → 4
+//   121 min → 8  (letzte Schwelle bei min 111, nächste bei 126)
+//   126 min → 9
 export function calculateBillableUnits(hours: number | null | undefined): number {
   if (hours == null || !Number.isFinite(hours) || hours <= 0) return 0
   const totalMinutes = Math.round(hours * 60)
-  const fullQuarters = Math.floor(totalMinutes / 15)
-  const partialMin = totalMinutes - fullQuarters * 15
-  const partial = partialMin >= 6 ? 0.25 : 0
-  return fullQuarters + partial
+  if (totalMinutes <= 0) return 0
+  // floor((T+9)/15) zählt, wie viele k-te Viertel ihre Schwelle (15k−9 min)
+  // überschritten haben — ab k=2 mit 5-Min-Toleranz. Für T>0 garantiert
+  // max(1, …), dass das 1. Viertel ohne Toleranz sofort als 1 ZE zählt.
+  return Math.max(1, Math.floor((totalMinutes + 9) / 15))
 }
 
 // Formatiert Dezimalstunden als "Xh Ymin" für die Anzeige.

@@ -10,47 +10,60 @@ describe('calculateWorkHours', () => {
   })
 
   it('returns minute-precise hours for partial durations', () => {
-    // 1h 6min → 66 min → 1.10 hours
     expect(calculateWorkHours('2026-04-20T09:00:00.000Z', '2026-04-20T10:06:00.000Z')).toBe(1.1)
-    // 2h 1min → 121 min → 2.0166... → rounds to 2.02
     expect(calculateWorkHours('2026-04-20T07:12:00.000Z', '2026-04-20T09:13:00.000Z')).toBe(2.02)
   })
 })
 
 describe('calculateBillableUnits', () => {
-  it('returns whole quarters for exact quarter-hour durations', () => {
-    expect(calculateBillableUnits(0.25)).toBe(1)   // 15 min
-    expect(calculateBillableUnits(2.5)).toBe(10)   // 150 min
-    expect(calculateBillableUnits(2.75)).toBe(11)  // 165 min
-    expect(calculateBillableUnits(9.5)).toBe(38)   // 570 min
+  // Helper: turn "X minutes worked" into the hours value our function expects.
+  const m = (minutes: number) => minutes / 60
+
+  it('bills 1 ZE the moment any work starts (no tolerance on the 1st quarter)', () => {
+    expect(calculateBillableUnits(m(1))).toBe(1)
+    expect(calculateBillableUnits(m(5))).toBe(1)
+    expect(calculateBillableUnits(m(6))).toBe(1)
+    expect(calculateBillableUnits(m(15))).toBe(1)
   })
 
-  it('does not bill the 9th unit when only 1–5 minutes are started (7:12–9:13/9:16/9:17)', () => {
-    expect(calculateBillableUnits(121 / 60)).toBe(8) // 8 voll + 1 min
-    expect(calculateBillableUnits(124 / 60)).toBe(8) // 8 voll + 4 min
-    expect(calculateBillableUnits(125 / 60)).toBe(8) // 8 voll + 5 min — Schwelle
+  it('keeps 1 ZE while the 2nd quarter is in its 5-min tolerance window', () => {
+    expect(calculateBillableUnits(m(16))).toBe(1)
+    expect(calculateBillableUnits(m(20))).toBe(1)
   })
 
-  it('bills a 0.25 partial from the 6th minute on (7:12–9:18 → 8.25)', () => {
-    expect(calculateBillableUnits(126 / 60)).toBe(8.25) // 8 voll + 6 min
-    expect(calculateBillableUnits(130 / 60)).toBe(8.25) // 8 voll + 10 min
-    expect(calculateBillableUnits(134 / 60)).toBe(8.25) // 8 voll + 14 min
+  it('bumps to 2 ZE from minute 21 (2nd quarter past tolerance)', () => {
+    expect(calculateBillableUnits(m(21))).toBe(2)
+    expect(calculateBillableUnits(m(30))).toBe(2)
+    expect(calculateBillableUnits(m(35))).toBe(2)
   })
 
-  it('jumps to the full quarter once 15 min are reached (7:12–9:27 → 9)', () => {
-    expect(calculateBillableUnits(135 / 60)).toBe(9)    // 9 voll exakt
-    expect(calculateBillableUnits(136 / 60)).toBe(9)    // 9 voll + 1 min
-    expect(calculateBillableUnits(140 / 60)).toBe(9)    // 9 voll + 5 min
-    expect(calculateBillableUnits(141 / 60)).toBe(9.25) // 9 voll + 6 min
+  it('bumps to 3 ZE from minute 36 (3rd quarter past tolerance)', () => {
+    expect(calculateBillableUnits(m(36))).toBe(3)
+    expect(calculateBillableUnits(m(50))).toBe(3)
   })
 
-  it('returns 0 for the first 5 minutes of work and for guards', () => {
+  it('reaches 4 ZE at minute 51 — one full hour worked needs 51 min', () => {
+    expect(calculateBillableUnits(m(51))).toBe(4)
+    expect(calculateBillableUnits(m(60))).toBe(4)
+    expect(calculateBillableUnits(m(65))).toBe(4)
+  })
+
+  it('handles the 7:12–9:13 case from the field (121 min → 8 ZE)', () => {
+    expect(calculateBillableUnits(m(121))).toBe(8)
+    expect(calculateBillableUnits(m(125))).toBe(8)
+  })
+
+  it('jumps to 9 ZE at minute 126 (9th quarter past tolerance)', () => {
+    expect(calculateBillableUnits(m(126))).toBe(9)
+    expect(calculateBillableUnits(m(135))).toBe(9)
+    expect(calculateBillableUnits(m(140))).toBe(9)
+  })
+
+  it('returns 0 only for zero / negative / non-finite input', () => {
     expect(calculateBillableUnits(0)).toBe(0)
     expect(calculateBillableUnits(null)).toBe(0)
     expect(calculateBillableUnits(undefined)).toBe(0)
     expect(calculateBillableUnits(-1)).toBe(0)
     expect(calculateBillableUnits(NaN)).toBe(0)
-    expect(calculateBillableUnits(5 / 60)).toBe(0)   // 5 min — Schwelle nicht erreicht
-    expect(calculateBillableUnits(6 / 60)).toBe(0.25) // 6 min — Schwelle erreicht
   })
 })
