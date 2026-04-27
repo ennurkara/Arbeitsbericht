@@ -154,14 +154,16 @@ function fitImage(box: { w: number; h: number }, ratio: number) {
 }
 
 /** Detect Vectron / APRO / HPF / Lieferschein / Installation aus dem Geräte-Set
- *  und der Beschreibung — best-effort, schadet nicht wenn falsch. */
+ *  und der Beschreibung — best-effort, schadet nicht wenn falsch. DHL-Versand
+ *  zählt automatisch als Lieferschein, egal ob das Wort im Text steht. */
 function detectServices(input: ReportPdfInput) {
   const haystack = [
     input.report.description ?? '',
     ...input.devices.map(d => d.name),
   ].join(' ').toLowerCase()
   return {
-    lieferschein: /lieferschein/i.test(haystack),
+    lieferschein: /lieferschein/i.test(haystack)
+                  || isDhlShipment(input.report.description),
     installation: /installation|installiert|montage/i.test(haystack),
     vectron:      /vectron/i.test(haystack),
     apro:         /\bapro\b/i.test(haystack),
