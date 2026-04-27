@@ -25,26 +25,34 @@ export function formatDateTime(iso: string): string {
   }).format(new Date(iso))
 }
 
-// Aufrunden auf die nächste angefangene Viertelstunde. Service-Abrechnung
-// erfolgt in 15-Min-Einheiten — eine angebrochene Viertelstunde wird voll
-// berechnet. Eingabe und Output beide in Dezimalstunden.
-// Beispiele: 2.10 → 2.25, 2.67 → 2.75, 2.75 → 2.75 (no-op), 0 → 0.
-export function roundUpToQuarterHour(hours: number): number {
-  if (!Number.isFinite(hours) || hours <= 0) return 0
-  // Erst auf ganze Minuten runden, damit Floating-Point-Müll wie
-  // 2.75 * 60 = 165.00000000000003 nicht zu einem Sprung auf 3.0 führt.
-  const minutes = Math.round(hours * 60)
-  const quarterHours = Math.ceil(minutes / 15)
-  return Math.round((quarterHours * 15) / 60 * 100) / 100
-}
-
-// Arbeitsdauer aus Beginn/Ende. Roh-Differenz wird minutengenau berechnet
-// und dann auf die nächste angefangene Viertelstunde aufgerundet, weil die
-// Abrechnung in 15-Minuten-Einheiten erfolgt. Beispiel: 2h 40min → 2.75.
+// Arbeitsdauer aus Beginn/Ende, minutengenau in Dezimalstunden.
+// Beispiel: 2h 1min → 2.02 (= 121 min). Die Billing-Logik (s.
+// calculateBillableUnits) entscheidet separat, wie viele ZE abgerechnet
+// werden — Roh-Dauer und Abrechnung sind absichtlich getrennt.
 export function calculateWorkHours(startIso: string, endIso: string): number {
   const diffMs = new Date(endIso).getTime() - new Date(startIso).getTime()
   const minutes = Math.max(0, Math.round(diffMs / 60000))
-  return roundUpToQuarterHour(minutes / 60)
+  return Math.round((minutes / 60) * 100) / 100
+}
+
+// ZE-Abrechnung mit 5-Min-Toleranz:
+// - 1 ZE = 15 min
+// - Volle Viertelstunden zählen 1:1
+// - Eine angefangene Viertelstunde zählt erst AB der 6. Minute
+//   (also bei 0–5 min angefangen → 0; bei 6–14 min angefangen → 0,25)
+// Beispiele:
+//   121 min (8 voll + 1) → 8
+//   125 min (8 voll + 5) → 8
+//   126 min (8 voll + 6) → 8,25
+//   134 min (8 voll + 14) → 8,25
+//   135 min (9 voll)     → 9
+export function calculateBillableUnits(hours: number | null | undefined): number {
+  if (hours == null || !Number.isFinite(hours) || hours <= 0) return 0
+  const totalMinutes = Math.round(hours * 60)
+  const fullQuarters = Math.floor(totalMinutes / 15)
+  const partialMin = totalMinutes - fullQuarters * 15
+  const partial = partialMin >= 6 ? 0.25 : 0
+  return fullQuarters + partial
 }
 
 // Formatiert Dezimalstunden als "Xh Ymin" für die Anzeige.
