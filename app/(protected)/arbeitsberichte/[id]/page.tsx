@@ -6,6 +6,7 @@ import { formatDateTime, deviceDisplayName } from '@/lib/utils'
 import { ArrowLeft } from 'lucide-react'
 import { ReportStatusBadge } from '@/components/ui/status-badge'
 import { PdfActions } from '@/components/arbeitsberichte/pdf-actions'
+import { PdfRecovery } from '@/components/arbeitsberichte/pdf-recovery'
 import type { UserRole, WorkReportStatus } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
@@ -99,12 +100,20 @@ export default async function BerichtDetailPage({ params }: PageProps) {
     pdfUrl = signed?.signedUrl ?? null
   }
 
-  // Re-Generation ist nur sinnvoll wenn Bericht abgeschlossen ist und beide
-  // Unterschriften vorliegen. Andernfalls rendert die Vorlage leere Signatur-Boxen.
+  // Re-Generation ist sinnvoll, sobald der Bericht abgeschlossen ist und
+  // mindestens die Techniker-Unterschrift vorliegt. Die Kunden-Unterschrift
+  // ist bei DHL-Versand absichtlich leer — vorher hat dieser Gate alle
+  // DHL-Reports vom Nachziehen ausgeschlossen.
   const canRegenerate =
+    report.status === 'abgeschlossen' && !!report.technician_signature
+
+  // Auto-Recovery: Bericht ist abgeschlossen, hat Signatur, aber kein
+  // pdf_path → triggere die Erstellung beim Page-Load. Deckt alle Fälle ab,
+  // in denen der Wizard-Finish die Persistierung nicht durchgezogen hat.
+  const needsPdfRecovery =
     report.status === 'abgeschlossen' &&
     !!report.technician_signature &&
-    !!report.customer_signature
+    !report.pdf_path
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -135,6 +144,8 @@ export default async function BerichtDetailPage({ params }: PageProps) {
           </Button>
         </div>
       )}
+
+      {needsPdfRecovery && <PdfRecovery reportId={report.id} />}
 
       <div className="bg-white rounded-kb border border-[var(--rule)] divide-y divide-[var(--rule-soft)]">
         <div className="p-5">

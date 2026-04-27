@@ -333,86 +333,63 @@ export function Wizard({ profile, initialDraft }: WizardProps) {
       }
     }
 
-    setTimeout(async () => {
-      let pdfBlob: Blob | null = null
-      try {
-        const res = await fetch('/api/render-report-pdf', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ reportId: merged.reportId }),
+    // PDF-Erstellung + Storage-Upload + pdf_path-Save laufen jetzt
+    // ATOMAR im Server-Endpoint. Wir warten hier auf 2xx und leiten
+    // erst dann weiter — kein Race mit router.push() mehr. Bei 5xx
+    // bleibt der Bericht 'abgeschlossen' aber ohne pdf_path; der
+    // Auto-Recovery-Hook auf der Detail-Seite zieht ihn dann nach.
+    let pdfBlob: Blob | null = null
+    try {
+      const res = await fetch('/api/render-report-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reportId: merged.reportId }),
+      })
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}))
+        throw new Error(json.error ?? `HTTP ${res.status}`)
+      }
+      pdfBlob = await res.blob()
+      toast.success('PDF erstellt und gespeichert')
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      toast.error('Fehler beim Erstellen des PDFs', {
+        description: `${msg} — kann auf der Detail-Seite nachgezogen werden.`,
+      })
+    }
+
+    // Lokaler Download für den Techniker (best-effort, blockiert nichts)
+    if (pdfBlob) {
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(pdfBlob)
+      a.download = `${reportRow?.report_number ?? merged.reportId}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(a.href)
+    }
+
+    // E-Mail-Versand: fire-and-forget — das PDF ist bereits server-seitig
+    // gespeichert, also kein Datenverlust mehr wenn der Mail-Endpoint
+    // hängt oder der User die Seite verlässt.
+    fetch('/api/send-report-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reportId: merged.reportId }),
+    }).then(async res => {
+      const json = await res.json().catch(() => ({}))
+      if (res.ok) {
+        toast.success(`PDF an Kunde gesendet (${json.sentTo ?? ''})`)
+      } else if (json.error !== 'Kunde hat keine E-Mail-Adresse') {
+        toast.error('PDF-Versand an Kunde fehlgeschlagen', {
+          description: json.error ?? `HTTP ${res.status}`,
         })
-        if (!res.ok) {
-          const json = await res.json().catch(() => ({}))
-          throw new Error(json.error ?? `HTTP ${res.status}`)
-        }
-        pdfBlob = await res.blob()
-        // Lokal speichern für den Techniker
-        const a = document.createElement('a')
-        a.href = URL.createObjectURL(pdfBlob)
-        a.download = `${reportRow?.report_number ?? merged.reportId}.pdf`
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        URL.revokeObjectURL(a.href)
-        toast.success('PDF wurde heruntergeladen')
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e)
-        toast.error('Fehler beim Erstellen des PDFs', { description: msg })
       }
+    }).catch(() => {
+      // Mail-Fehler stört den Wizard-Erfolg nicht — Bericht ist sicher.
+    })
 
-      if (pdfBlob) {
-        try {
-          const pdfPath = `${merged.reportId}.pdf`
-          const { error: uploadErr } = await supabase.storage
-            .from('work-report-pdfs')
-            .upload(pdfPath, pdfBlob, { contentType: 'application/pdf', upsert: true })
-          if (uploadErr) {
-            toast.error('PDF-Upload in die Warenwirtschaft fehlgeschlagen', {
-              description: uploadErr.message,
-            })
-          } else {
-            const { error: saveErr } = await supabase
-              .from('work_reports')
-              .update({ pdf_path: pdfPath, pdf_uploaded_at: new Date().toISOString() })
-              .eq('id', merged.reportId)
-            if (saveErr) {
-              toast.error('PDF-Pfad konnte nicht gespeichert werden', {
-                description: saveErr.message,
-              })
-            } else {
-              // PDF ist hochgeladen, optional an den Kunden mailen wenn er
-              // eine E-Mail-Adresse hat. Fehler hier blockieren den Wizard
-              // nicht — der Bericht ist trotzdem fertig.
-              try {
-                const res = await fetch('/api/send-report-pdf', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ reportId: merged.reportId }),
-                })
-                const json = await res.json().catch(() => ({}))
-                if (res.ok) {
-                  toast.success(`PDF an Kunde gesendet (${json.sentTo ?? ''})`)
-                } else if (json.error === 'Kunde hat keine E-Mail-Adresse') {
-                  // Stiller Skip — kein Fehler, einfach nicht versenden.
-                } else {
-                  toast.error('PDF-Versand an Kunde fehlgeschlagen', {
-                    description: json.error ?? `HTTP ${res.status}`,
-                  })
-                }
-              } catch (e) {
-                const msg = e instanceof Error ? e.message : String(e)
-                toast.error('PDF-Versand an Kunde fehlgeschlagen', { description: msg })
-              }
-            }
-          }
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e)
-          toast.error('Unerwarteter Fehler beim PDF-Upload', { description: msg })
-        }
-      }
-
-      router.push('/arbeitsberichte')
-    }, 400)
+    router.push('/arbeitsberichte')
   }
 
   return (
